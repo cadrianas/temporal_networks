@@ -18,12 +18,12 @@ from test_data_generator import (
 )
 
 # Import the refactored functions
-from network_properties import network_properties
-from calculate_centralities import calculate_centralities
-from vertex_properties import vertex_properties
-from communities_measures import communities_measures
-from plot_community_evolution import plot_community_evolution
-from edge_formation_dissolution import edge_formation, edge_dissolution
+from temporal_networks.network_properties import network_properties
+from temporal_networks.calculate_centralities import calculate_centralities
+from temporal_networks.vertex_properties import vertex_properties
+from temporal_networks.communities_measures import communities_measures
+from temporal_networks.plot_community_evolution import plot_community_evolution
+from temporal_networks.edge_formation_dissolution import edge_formation, edge_dissolution
 
 import pandas as pd
 
