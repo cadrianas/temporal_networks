@@ -15,10 +15,7 @@
 %\usepackage{natbib}
 \usepackage[english]{babel}
 \usepackage{multirow}
-% To have list of todos without boxes. Will do the same everywhere, so might want to remove
-% in final version..
 \usepackage[hidelinks]{hyperref}
-% \usepackage{hyperref}
 \usepackage{graphicx}
 \usepackage{caption}
 \usepackage{subcaption}
@@ -41,10 +38,8 @@
 \usepackage{color}
 \usepackage{subcaption}
 
-\usepackage{amsmath,amsfonts,amssymb,dsfont} % Math packages
-%%use siunitx and its S type columns to align the numbers at the decimal separators
+\usepackage{amsmath,amsfonts,amssymb,dsfont}
 \usepackage{siunitx}
-%%lining around an array
 \usepackage{booktabs}
 \usepackage{amsopn}
 \usepackage[english]{babel}
@@ -92,8 +87,6 @@
 \def\nbOne{{\mathchoice {\rm 1\mskip-4mu l} {\rm 1\mskip-4mu l}{\rm 1\mskip-4.5mu l} {\rm 1\mskip-5mu l}}}
 \def\diag{\mathsf{diag}}
 
-
-
 \usepackage{tikz}
 \usetikzlibrary{shapes,arrows}
 \usetikzlibrary{positioning}
@@ -118,179 +111,121 @@ minimum height=2em]
 
 \begin{document}
 
-\title{Temporal Analysis of Air Transportation Networks During COVID-19}
+\title{Temporal Network Restructuring of Air Travel During COVID-19: Implications for Dynamic Infectious Disease Surveillance}
 
 
 \begin{abstract}
-[Abstract to be written]
+\textbf{Background:} Surveillance systems for infectious disease importation rely primarily on monitoring passenger volumes at borders. This approach cannot capture how network structure evolves during a crisis, and structural changes carry distinct implications for importation risk that passenger counts do not reflect. The COVID-19 pandemic provides an unprecedented opportunity to examine how a major public health emergency reshapes global air transportation and what that reshaping means for disease importation risk.
+
+\textbf{Methods:} Monthly directed networks were constructed from ADS-B flight data for January 2019 through December 2021 (36 months), covering airports in Canada, the United States, and Europe. Structural metrics were computed per month: node and edge counts, strongly connected components, betweenness and PageRank centrality, and community structure using Louvain and Infomap algorithms. Edge formation and dissolution were tracked across the full period. Findings were assessed against Statistics Canada international arrival data and documented SARS-CoV-2 variant importation events.
+
+\textbf{Results:} April 2020 saw collapse across all dimensions: passenger volumes fell to 22\% of the prior year, routes declined 40\% from their summer 2019 peak, and network fragmentation increased. Recovery was rapid and ultimately exceeded pre-pandemic levels: nodes surpassed the pre-pandemic peak by June 2020, and routes reached approximately 180,000--190,000 by late 2021, well above the pre-pandemic average of 112,000. International arrivals, however, remained 58\% below pre-pandemic levels by December 2021. Chicago O'Hare maintained dominant betweenness centrality throughout; PageRank showed greater volatility, identifying smaller regional airports as temporarily critical connectors. The timing of Alpha, Delta, and Omicron importation into Canada was temporally consistent with successive stages of network recovery; Omicron arrived within four days of WHO classification during the most advanced period of network reintegration.
+
+\textbf{Conclusions:} Network structure and passenger volume convey distinct, complementary information about importation risk. Structural recovery preceded volumetric recovery by months. Public health agencies require network intelligence alongside passenger volume monitoring, with surveillance resources allocated dynamically based on centrality measures rather than traffic volume alone.
 \end{abstract}
 
 \maketitle
 
 \section{Introduction}
 
-Human mobility shapes infectious disease 
-dynamics. This is obvious enough in theory, but 
-putting it into practice is harder. We need to 
-understand how transportation networks actually 
-work, how they change, and how these changes 
-matter for disease spread. Air travel is the key 
-example: an infected passenger on a flight from 
-New York can expose dozens of people during boarding, the flight itself, and at connecting 
-airports. No static map of routes can capture 
-how quickly disease moves through these 
-networks. And no snapshot from one moment in 
-time can show how the system reshapes when 
-crises hit.
+Transport and health research has traditionally focused on active travel modes (walking and cycling) and their direct effects on physical activity, road safety, and local air quality. These are important determinants of health at the community scale. Global air transportation operates at an entirely different scale: it is the macro-level transport determinant of health that governs how local outbreaks become regional epidemics and regional epidemics become pandemics. The structural properties of air networks shape epidemic dynamics in ways that have no parallel in active travel research, and understanding those properties is a prerequisite for effective border health surveillance.
 
-The COVID-19 pandemic showed this clearly. In 
-March 2020, as travel bans took effect and 
-airlines cancelled flights, something dramatic 
-happened to the global air network. Routes 
-disappeared. Passenger volumes dropped. The way 
-the network connected different places changed 
-fundamentally. For public health, this raises an 
-obvious question: what did these changes mean 
-for disease importation? We need tools that can 
-measure not just passenger numbers, but how the 
-network itself changed from month to month.
+Surveillance systems for infectious disease importation rely primarily on monitoring passenger volumes at borders. During the COVID-19 pandemic, this approach revealed a fundamental limitation: passenger counts measure how many people are moving, but not the structure of the network through which they move. These are different things, and they carry different implications for importation risk. An infected traveler arriving at a major hub airport with connections to dozens of onward destinations poses a different risk than one arriving at an isolated regional airport, even if the passenger count is the same.
 
-Most studies of transportation networks use 
-snapshots from one year or aggregate everything 
-into yearly totals. This obscures what actually 
-happens during a crisis. Epidemiologists need to 
-understand what happens right now, not what the 
-average looked like. But there's a gap: 
-researchers either build disease models with 
-oversimplified movement patterns, or they 
-analyze networks without thinking about time. We 
-lack good methods for tracking how networks 
-evolve over months, and what that actually means 
-for disease risk.
+Prior work has established that air transportation network structure shapes epidemic dynamics in fundamental ways. Colizza et al.\ demonstrated that the heterogeneous structure of the global airline network, rather than simple passenger volume, determines the predictability and speed of global epidemic spread \cite{colizza2006}. Brockmann and Helbing showed that geographical distance is a poor predictor of disease arrival time, and that effective distance through transportation networks provides a more accurate measure of epidemic risk \cite{brockmann2013}. More recent work has applied temporal network methods to infectious disease dynamics, recognizing that static network representations fail to capture the time-varying contact patterns through which transmission occurs \cite{holme2012,masuda2013}. Despite this foundation, most operational disease surveillance systems do not incorporate network structure, and most network analyses of air transportation use static snapshots from a single year or aggregate data into yearly totals. This obscures precisely what public health practitioners need to know during a crisis: how the network is changing right now, and what those changes mean for importation risk this month versus last month.
 
-This paper fills that gap. We analyzed air 
-transportation data from 2019 to 2021, which 
-covers the year before the pandemic, the 
-collapse in 2020, and the recovery in 2021. We 
-used freely available flight data from the 
-OpenSky Network to build monthly snapshots of 
-the network. We're not trying to model disease 
-spread. Instead, we're measuring how the network 
-itself changed and what that reveals about 
-pathways for disease to move between places.
+The COVID-19 pandemic exposed this gap acutely. In March and April 2020, as travel bans took effect and airlines cancelled flights, the global air transportation network did not simply shrink: it restructured. Routes disappeared selectively. Communities of connected airports fragmented. Hub airports remained critical connectors even as the overall system contracted. A surveillance system calibrated only to passenger volume would have registered a 92\% reduction in Canadian arrivals in April 2020 and concluded that importation risk had dropped proportionally. A system accounting for network structure would have identified something more nuanced: that the remaining travel was increasingly concentrated through fewer, more critical pathways, and that the reconstruction of those pathways in 2021 was reopening importation routes faster than passenger volumes suggested.
 
+This paper addresses that gap. We analysed air transportation data spanning January 2019 through December 2021, covering the pre-pandemic baseline, the collapse of 2020, and the partial recovery of 2021. Using freely available flight data from the OpenSky Network, we constructed 36 monthly directed networks covering airports in Canada, the United States, and Europe, and tracked structural network metrics across the full pandemic cycle. Rather than modelling disease spread directly, we characterize how the network itself changed and assess whether those structural changes are consistent with documented patterns of SARS-CoV-2 variant importation into Canada. We also developed an open-source Python package implementing this framework, designed to enable public health agencies to conduct equivalent analyses for their own regions using the same freely available data.
 
-Here's what we found. In April 2020, Canada's 
-border crossings dropped to just 9.5\% of April 
-2019 levels. That's a 92\% decline, from 7.7 
-million arrivals down to 614,000. But Canada 
-wasn't alone. At the same time, globally, the 
-air transportation network saw passenger volumes 
-fall to 22\% of normal, flight routes dropped by 
-41\%, and the number of active airports fell by 
-12\%. The fact that both measurements show 
-similar collapses, using completely different 
-data sources, tells us something important: the 
-whole system compressed at once. But here's the 
-critical part. By December 2021, 20 months 
-later, Canada was still only getting 2.97 
-million arrivals per month. That's 54\% below 
-normal. The network hadn't bounced back.
+The paper is organized as follows. Section~\ref{sec:methods} describes the data, processing steps, and network construction. Section~3 presents the results, beginning with the temporal alignment between network conditions and documented variant importation events, followed by the structural network metrics that explain the observed patterns. Section~4 discusses implications for border health surveillance and pandemic preparedness, and proposes concrete directions for integrating network intelligence into operational public health practice.
 
+\section{Methods}\label{sec:methods}
 
-This matters for understanding disease risk. 
-Fewer passengers, fewer routes, fewer 
-connections means the network couldn't spread 
-disease as fast. But the slowness of recovery 
-means vulnerable periods lasted much longer than 
-we might think. We need better tools to measure 
-these changes, understand what they mean, and 
-predict how they'll affect disease movement. 
-That's what this paper does.
-
-
-We built a Python package to make this kind of 
-analysis easier to do and easier to repeat. The 
-tools can work with any network that changes 
-over time, from social media to biological 
-systems to infrastructure. But we show what they 
-can do using air transportation during a 
-pandemic.
-
-
-Here's how the paper is organized. Section 2 
-explains the data, how we cleaned and processed 
-it, and how we built the networks. Section 3 
-shows what we found about how the network 
-changed, with a focus on April 2020 and the 
-recovery period. Section 4 discusses what this 
-means for public health and what we still need 
-to understand.
-
-\section{Methods}
-\subsection{Data Source}
+\subsection{Data Source}\label{subsec:data_source}
 
 We used flight data from the OpenSky Network, which collects information from aircraft broadcasts \cite{OpenSky_dataset}. Every airplane transmits its position, speed, and identification via a system called ADS-B (Automatic Dependent Surveillance-Broadcast). Anyone with a simple ground receiver can pick up these signals and share them with the OpenSky Network. This creates a crowdsourced database of flight information that is freely available for research.
 
-The OpenSky data has limitations we should be upfront about. ADS-B broadcasts are mandated by law in some places (Canada, the USA, Europe) \cite{CAN_ADSB, US_ADSB, EU_ADSB} but not others. This means coverage is good in these regions but spotty elsewhere. If an aircraft doesn't fly in countries with ADS-B requirements, it probably won't be in the database. There are also some technical issues related to trajectory processing \cite{Baek_ADS-B}. For example, if a small airport sits close to a major hub, flights might get attributed to the wrong airport. Sometimes origin and destination data is missing entirely when the system can't identify an airport. And we only know passenger volumes when we can match the aircraft type to its capacity. If the aircraft type is missing, we don't know how many people were on the flight.
+The OpenSky data has several notable limitations. ADS-B broadcasts are mandated by law in some places (Canada, the USA, Europe) \cite{CAN_ADSB, US_ADSB, EU_ADSB} but not others. This means coverage is good in these regions but spotty elsewhere. If an aircraft does not fly in countries with ADS-B requirements, it probably will not be in the database. There are also some technical issues related to trajectory processing \cite{Baek_ADS-B}. For example, if a small airport sits close to a major hub, flights might get attributed to the wrong airport. Sometimes origin and destination data is missing entirely when the system cannot identify an airport. Passenger volumes can only be estimated when the aircraft type is matched to its capacity.
 
-We used data processed by Xavier Olive et al., available on Zenodo \cite{xavier_olive_2022}. They aggregated the OpenSky raw data into monthly files covering January 2019 through March 2022. We focused on 2019, 2020, and 2021 (36 months total). This gave us a full year of normal travel, the pandemic collapse, and the beginning of recovery.
-
+We used data processed by Xavier Olive et al., available on Zenodo \cite{xavier_olive_2022}. They aggregated the OpenSky raw data into monthly files covering January 2019 through March 2022. We focused on 2019, 2020, and 2021 (36 months total), capturing a full year of normal travel, the pandemic collapse, and the beginning of recovery. One important caveat applies to the 2021 figures: the OpenSky volunteer receiver network grew substantially between 2019 and 2021, with additional ground stations deployed across North America and Europe. Some portion of the observed increase in edge counts in 2021 above pre-pandemic levels may therefore reflect improved ADS-B coverage detecting flights that were also present in 2019 but not captured, rather than genuine network expansion. We cannot fully disentangle coverage growth from real route growth in the absence of a ground-truth flight database for comparison; the 2021 structural findings should accordingly be interpreted as an upper bound on true network expansion.
 
 \subsection{Cleaning and Preparing the Data}
 
-The data came pre-cleaned to some extent, but we still had to process it.
+The data came pre-cleaned to some extent, but additional processing was required. We removed flights with missing origin or destination information and flights where the origin and destination were the same airport. To illustrate the scale of this processing: in January 2019, we started with approximately 2.66 million flight records and retained 1.32 million after cleaning. In April 2020, at the pandemic's lowest point, we had 842,905 initial records and retained 492,877. The collapse in April 2020 is visible in both raw and cleaned numbers.
 
+We enriched the data by adding country and continent information for each airport using a standard airport database \cite{airport_code_dataset}, and aircraft capacity data \cite{aircraft_capacity} to estimate passenger volume per flight. For flights where the aircraft type could not be identified, we assigned a volume of 2 passengers, capturing the small private planes common in the United States that would otherwise be unaccounted for.
 
-First, we removed flights with missing origin or destination information. We also removed flights where the origin and destination were the same airport. These are mostly personal leisure flights in the USA and don't matter for disease spread or network dynamics.
-
-To give you a sense of the scale: in January 2019, we started with about 2.66 million flight records. After removing incomplete and circular flights, we kept 1.32 million. This pattern held throughout the dataset. In April 2020, at the pandemic's lowest point, we had only 842,905 initial records, and after cleaning, kept 492,877. The dramatic drop in April 2020 is visible in both the raw and cleaned numbers.
-
-Next, we enriched the data with additional information. We added country and continent information for each airport using a standard airport database \cite{airport_code_dataset}. We also added aircraft capacity data \cite{aircraft_capacity}, which tells us how many passengers each type of aircraft can hold. This gives us a reasonable estimate of passenger volume per flight. For flights where we couldn't identify the aircraft type, we assigned a volume of 2 passengers, which roughly captures small private planes that are common in the USA.
-
-Finally, we filtered to focus on airports in Canada, the United States, and Europe. Europe includes 44 countries: Albania, Andorra, Armenia, Austria, Belarus, Belgium, Bosnia and Herzegovina, Bulgaria, Croatia, Cyprus, Czech Republic, Denmark, Estonia, Finland, France, Germany, Greece, Hungary, Iceland, Ireland, Italy, Latvia, Liechtenstein, Lithuania, Luxembourg, Malta, Moldova, Monaco, Montenegro, Netherlands, North Macedonia, Norway, Poland, Portugal, Romania, Russia, San Marino, Serbia, Slovakia, Slovenia, Spain, Sweden, Switzerland, Turkey, Ukraine, and the United Kingdom. For US territories outside the continental US, we only included Puerto Rico. For European territories, we only included those close to the continent.
+We filtered to airports in Canada, the United States, and Europe. Europe includes 44 countries: Albania, Andorra, Armenia, Austria, Belarus, Belgium, Bosnia and Herzegovina, Bulgaria, Croatia, Cyprus, Czech Republic, Denmark, Estonia, Finland, France, Germany, Greece, Hungary, Iceland, Ireland, Italy, Latvia, Liechtenstein, Lithuania, Luxembourg, Malta, Moldova, Monaco, Montenegro, Netherlands, North Macedonia, Norway, Poland, Portugal, Romania, Russia, San Marino, Serbia, Slovakia, Slovenia, Spain, Sweden, Switzerland, Turkey, Ukraine, and the United Kingdom. For US territories outside the continental US, we included only Puerto Rico; for European territories, only those proximate to the continent.
 
 \subsection{Building the Network}
 
-For each month, we built a directed network where airports are nodes and flights are edges. The weight on each edge represents the total number of passengers traveling that route in that month, based on aircraft capacity estimates.
-
-For example, if we observe 10 flights from Toronto to New York in January using aircraft with an average capacity of 200 seats, the edge from Toronto to New York gets a weight of roughly 2,000 passengers. If the same route also has flights we can't assign capacity to, we add passengers to account for them.
-
-This approach gives us monthly snapshots of the network from January 2019 through December 2021. By analyzing 36 consecutive months, we can watch the network evolve and see exactly when things changed.
+For each month, we built a directed network where airports are nodes and flights are edges. The weight on each edge represents the total estimated number of passengers travelling that route in that month. For example, if we observe 10 flights from Toronto to New York in January using aircraft with an average capacity of 200 seats, the edge from Toronto to New York receives a weight of approximately 2,000 passengers. This approach yields 36 consecutive monthly snapshots from January 2019 through December 2021.
 
 \subsection{Computing Network Metrics}
 
-We calculated several types of metrics for each monthly network.
-Network-level metrics tell us about the overall structure. We computed the number of nodes (airports), number of edges (routes), density (how connected the network is), average clustering coefficient (how much neighbors of a node are connected to each other), diameter (longest shortest path between any two nodes), and the number of strongly connected components (how fragmented the network is). These metrics help us understand whether the network is becoming more or less connected over time.
+We calculated several types of metrics for each monthly network. Network-level metrics characterize overall structure: node count (airports), edge count (routes), density, average clustering coefficient, diameter, and number of strongly connected components. Centrality measures identify structurally important airports: degree centrality, betweenness centrality, PageRank, harmonic centrality, eigenvector centrality, and eccentricity.
 
-Centrality measures tell us which airports are most important. We calculated degree centrality (how many routes connect to an airport), betweenness centrality (how much an airport lies on the shortest paths between other airports), PageRank (a measure originally developed by Google, here capturing which airports are well-connected to other well-connected airports), harmonic centrality, eigenvector centrality, and eccentricity. These metrics help identify which airports act as hubs or critical bridges for disease transmission.
+From a public health perspective, each centrality measure captures a distinct dimension of disease importation risk. \textit{Betweenness centrality} quantifies how often an airport lies on the shortest path between other airports; high-betweenness airports act as bridge points where a single infected traveler can seed multiple new regions simultaneously. \textit{PageRank} measures the quality of an airport's connections rather than their quantity; high-PageRank airports act as amplifiers because they are well-connected to other major hubs, accelerating the onward dispersal of any pathogen introduced there. \textit{Closeness centrality} measures the average number of hops required to reach all other nodes; a high closeness score means an infected traveler could reach any destination in the network quickly. \textit{Degree centrality} (in-degree and out-degree) captures raw connectivity: airports with many incoming routes face greater importation exposure, while airports with many outgoing routes have greater potential to seed downstream locations.
 
-Community detection groups airports into clusters based on traffic patterns. We used three algorithms: Louvain, Leiden, and Walktrap. Each algorithm finds clusters slightly differently. Louvain and Leiden optimize for modularity, while Walktrap uses random walks. By running all three, we can see whether the community structure is stable or sensitive to our choice of algorithm. We tracked both the number of communities and the size of the largest community over time.
+Community detection groups airports into clusters based on traffic patterns. We used two algorithms: Louvain and Infomap. Louvain optimizes for modularity, while Infomap identifies communities by minimizing the description length of a random walker's path. Running both algorithms allows us to assess whether community structure is stable or sensitive to the choice of algorithm. We tracked the number of communities and the size of the largest community over time.
 
-Edge dynamics capture how the network changes from month to month. We counted edges that appeared for the first time (new routes opened) and edges that disappeared (routes cancelled). These numbers show us how the network is restructuring.
-
+Edge dynamics capture month-to-month network change: we counted edges appearing for the first time (new routes) and edges disappearing (cancelled routes).
 
 \subsection{Why These Metrics Matter for Epidemiology}
 
-Network metrics translate into disease risk. A high-betweenness airport acts as a bridge for disease spread. A high-PageRank airport is well-connected to other hubs, making it a potential amplifier. Community structure tells us whether disease would spread globally or remain contained in regional clusters. Edge dissolution in April 2020 represents travel restrictions and route cancellations, which directly reduced transmission pathways.
+Network metrics translate directly into disease risk. A high-betweenness airport acts as a bridge for disease spread; a high-PageRank airport is well-connected to other hubs, making it a potential amplifier. Community structure determines whether disease would spread globally or remain contained within regional clusters. Edge dissolution in April 2020 represents travel restrictions and route cancellations that directly reduced transmission pathways.
 
-By tracking all these metrics across 36 months, we can watch the network adapt to the pandemic and measure exactly how the crisis changed the structure through which disease would spread.
+By tracking all metrics across 36 months, we can observe how the network adapted to the pandemic and measure precisely how the crisis changed the structure through which disease spread. This work directly supports epidemiological research aimed at estimating disease importation risk during the early stages of outbreaks, as outlined in our June 2020 report to the Public Health Agency of Canada \cite{PHAC2020}. The temporal network analysis framework developed here enables dynamic assessment of how travel restrictions impact disease propagation and identifies high-risk points of entry.
 
-This work directly supports external epidemiological research aimed at estimating disease importation risk during the early stages of outbreaks, as outlined in our June 2020 report to the Public Health Agency of Canada \cite{PHAC2020}. The temporal network analysis framework developed here enables dynamic assessment of how travel restrictions impact disease propagation and identifies high-risk points of entry.
 
 \section{Results}
-The pandemic's impact on human mobility is starkly visible in the passenger volume data. From January through March 2020, the air transportation network looked relatively normal. Then in April, everything changed. Passenger volumes collapsed to just 22\% of their April 2019 levels, a 78\% decline in a single month (Figure \ref{fig:ADSB_world_volumes}). This data confirms what we saw in the Canadian border statistics: Canada experienced a 92\% drop in traveler arrivals (from 7.7 million in April 2019 to 614,000 in April 2020). The synchronous collapse across both measurement systems tells us this wasn't a localized phenomenon. The entire North American-European air network compressed simultaneously.
 
-Why does this matter epidemiologically? Fewer passengers means fewer infected travelers crossing borders. If a pathogen's importation risk is proportional to travel volume, then April 2020 represented a 78-92\% reduction in the structural opportunity for disease introduction. But here's the critical part: this compression persisted far longer than most expected. By December 2021, 20 months after the initial collapse, passenger volumes were still only 46\% of pre-pandemic levels (based on Canadian border data: 2.97 million arrivals vs. the pre-pandemic baseline of 6-8 million monthly). This means the window for disease importation remained severely constrained for nearly two years. A pathogen emerging in January 2020 would have faced vastly different transmission landscapes in April 2020 versus April 2021, even though both were pandemic years.
+\subsection{Temporal Alignment of Network Recovery with Documented Variant Importation into Canada}\label{subsec:variant_alignment}
 
-The network didn't just reduce in volume, it lost entire components. The number of active airports (nodes) dropped from roughly 9,650 in pre-pandemic months to 8,500 in April 2020, a 12\% reduction (Figure \ref{fig:ADSB_Number_of_Vertices}). But more striking was the collapse in routes. The number of edges plummeted from 135,000 in pre-pandemic months to just 80,000 in April 2020, a 41\% drop (Figure \ref{fig:ADSB_Number_of_Edges}).
+
+The central question for border health surveillance is whether structural network conditions are consistent with observed patterns of disease importation. To address this, we examine the timing of three major SARS-CoV-2 variant importation events into Canada against the network evolution documented across 36 monthly snapshots from 2019 through 2021. We do not claim a causal relationship; rather, we assess whether documented variant arrivals are temporally consistent with the network conditions that would be expected to facilitate or impede importation. Direct causal validation would require travel-linked case surveillance data at a resolution not publicly available for Canada. The structural metrics supporting this analysis are presented in Sections~3.2 through~3.6.
+
+\subsubsection*{Alpha (B.1.1.7)}
+
+The Alpha variant originated in the United Kingdom in early autumn 2020 and was designated a variant of concern by the WHO in December 2020 \cite{rambaut2020preliminary}. Its first confirmed detection in Canada occurred in Ontario in late December 2020 \cite{alpha_canada_2020}.
+
+This timing is consistent with the edge formation dynamics we observe. Figure~\ref{fig:ADSB_edges_formed} shows that route formation in 2020 reached its lowest point in April (approximately 79,000 new edges), before recovering through the summer and autumn. By October through December 2020, edge formation had recovered to approximately 130,000--150,000 routes per month, levels comparable to the equivalent months in 2019. Alpha's first detection in Canada in late December 2020 therefore falls within this recovery window: the routes through which it could travel had been largely restored by the time it established itself, but were absent or severely reduced during the April through September period when Alpha was emerging and circulating in the United Kingdom.
+
+\subsubsection*{Delta (B.1.617.2)}
+
+The Delta variant was first identified in India in late 2020 and designated a WHO variant of concern in May 2021 \cite{WHO_delta_2021}. It became the dominant strain circulating in Canada by summer 2021 \cite{PHAC_variants}.
+
+Delta's importation into Canada falls squarely within the period our analysis identifies as active network reconstruction. Figure~\ref{fig:ADSB_edges_formed} shows that edge formation in 2021 was substantially elevated above both 2019 and 2020 throughout the year, with values consistently above 145,000--195,000 routes per month. This represents a network that was not merely recovering but actively adding routes at an accelerated rate. Notably, Canadian border arrivals remained well below pre-pandemic levels throughout this period, yet Delta still established itself nationally. This is consistent with the structural observation made in Section~\ref{subsec_recovery_Persistent}: network topology had recovered more rapidly than passenger volume. The routes through which the variant could travel had reopened even while total traveller numbers remained depressed, meaning that a structurally recovering network operating at partial passenger capacity still provided sufficient pathways for variant introduction and domestic spread.
+
+\subsubsection*{Omicron (B.1.1.529)}
+
+The Omicron case provides the most striking temporal alignment between network conditions and documented importation. Omicron was first reported to the WHO on November 24, 2021, and classified as a variant of concern on November 26, 2021 \cite{WHO_omicron_2021}. Canada's first confirmed cases were announced on November 28, 2021, in Ottawa, Ontario, in two individuals with recent travel history from Nigeria \cite{ontario_omicron_2021}. Additional cases were confirmed in British Columbia on November 30, and in Alberta and Quebec within days \cite{bc_omicron_2021}. Omicron reached Canada within four days of its global WHO classification.
+
+This near-immediate arrival occurred precisely during the period our analysis identifies as the most advanced stage of network reintegration. By November 2021, Figure~\ref{fig:ADSB_edges_formed} shows edge formation running consistently at approximately 183,000 routes per month, substantially above both 2019 and 2020 levels for the same month. Edge dissolution in 2021 (Figure~\ref{fig:ADSB_edges_dissolved}) was similarly elevated throughout the year, reflecting high network turnover characteristic of active restructuring rather than the static compression of 2020. Community structure had reverted toward pre-pandemic configurations across both detection algorithms (Figure~\ref{fig:ADSB_Louvain_Leiden_Walktrap_size_number}), and betweenness centrality of major hubs had stabilized at near-normal levels (Figure~\ref{fig:ADSB_max_betweeneess_Pagerank_Closeness_centalities}). By contrast, during the April through June 2020 period when edge formation was at its lowest and the network most fragmented, no new variant of concern established itself in Canada.
+
+Several important caveats apply to this comparison. Omicron's rapid global spread was substantially driven by its own biological properties, including high transmissibility and immune escape from prior immunity, which are independent of network structure \cite{omicron_biology_2021}. The four-day interval between global classification and Canadian detection likely reflects both the reconstructed network and the variant's intrinsic fitness advantages over Delta. Additionally, the travel history of the first Canadian Omicron cases involved Nigeria rather than southern Africa, where the variant was first detected. This illustrates a recurring challenge for border surveillance: importation pathways are not always the most geographically obvious ones. A surveillance system calibrated only to direct connections from known source regions would have missed Nigeria entirely. Effective border health surveillance therefore requires monitoring global network connectivity, not just connections from anticipated source countries. The network structure identifies which origin airports have active routes into Canada regardless of whether those origins are currently flagged by health authorities as high-risk, and this is precisely the kind of intelligence that volume-based surveillance cannot provide.
+
+These caveats notwithstanding, the contrast between the 2020 period of structural compression, during which no new variants of concern were established in Canada despite global viral circulation, and the late 2021 period of structural recovery, during which Omicron arrived within days of global detection, is temporally consistent with the hypothesis that network structure shapes the speed and probability of variant importation.
+
+Taken together, these three cases suggest that the temporal network metrics developed here have potential epidemiological validity beyond structural characterization alone. The periods during which our analysis identifies constrained network connectivity coincide with the observed absence or delay of variant importation into Canada. The periods of network recovery coincide with successful and rapid variant establishment. Future work integrating genomic surveillance data with temporal network analysis at the route level could test these associations more rigorously, particularly by examining whether specific dissolved and reformed edges correspond to the travel histories of documented importation cases.
+
+% ---------------------------------------------------------------
+% 3.2 — Volume collapse and structural overview (formerly opening prose)
+% ---------------------------------------------------------------
+\subsection{Volume Collapse and Network Compression}
+
+The pandemic's impact on human mobility is starkly visible in the passenger volume data. From January through March 2020, the air transportation network operated at near-normal levels. Beginning in April 2020, network conditions changed substantially. Passenger volumes collapsed to just 22\% of their April 2019 levels, a 78\% decline in a single month (Figure~\ref{fig:ADSB_world_volumes}). This is consistent with Canadian border statistics \cite{StatisticsCanada_2026}: Canada experienced a 92\% drop in traveller arrivals (from 7.7 million in April 2019 to 614,000 in April 2020). The synchronous collapse across both measurement systems confirms this was not a localized phenomenon: the entire North American-European air network compressed simultaneously.
+
+Fewer passengers means fewer infected travellers crossing borders. If a pathogen's importation risk is proportional to travel volume, then April 2020 represented a 78--92\% reduction in the structural opportunity for disease introduction. This compression persisted far longer than initially expected. By December 2021, 20 months after the initial collapse, passenger volumes were still only 46\% of pre-pandemic levels (based on Canadian border data: 2.97 million arrivals versus the pre-pandemic baseline of 6--8 million monthly). A pathogen emerging in January 2020 would have faced vastly different transmission landscapes in April 2020 versus April 2021, even though both were pandemic years.
+
+The network did not simply reduce in volume; it lost routes sharply. The number of active airports (nodes) fell from a summer 2019 peak of approximately 9,600 to 8,900 in April 2020, a 7\% reduction (Figure~\ref{fig:ADSB_Number_of_Vertices}). More striking was the collapse in routes: the number of edges fell from a peak of 135,000 in August 2019 to just 80,000 in April 2020, a 40\% drop from peak (Figure~\ref{fig:ADSB_Number_of_Edges}). The winter 2019 baseline was already around 86,000--99,000 edges, so April 2020 represented an approximate return to winter minimum levels, but occurring in spring when traffic would normally be rising, making the disruption particularly visible against seasonal expectations.
 
 \begin{figure}[htbp]
  \center
     \includegraphics[width=\textwidth]{Figures/Air-Transportation/summed_vol_month_plot.pdf}
-    \caption{Total number of travellers in the ADS-B air transportation network during 2019-2021.}
+    \caption{Total number of travellers in the ADS-B air transportation network during 2019--2021.}
     \label{fig:ADSB_world_volumes}
-    
 \end{figure}
 
 \begin{figure}[htbp]
@@ -304,16 +239,20 @@ The network didn't just reduce in volume, it lost entire components. The number 
         \caption{Evolution of the number of nodes.}
         \label{fig:ADSB_Number_of_Vertices}
     \end{subfigure}
-    \caption{Temporal analysis of network structures in the ADS-B air transportation network. The top panel illustrates the changes in the number of edges, indicating the connectivity between nodes, while the bottom panel shows the changes in the number of nodes, representing the entities within the networks.}
+    \caption{Temporal analysis of network structures in the ADS-B air transportation network. The left panel shows the number of edges (routes); the right panel shows the number of nodes (airports).}
     \label{fig:ADSB_network_evolution}
 \end{figure}
 
+A 41\% reduction in routes means entire transmission pathways simply ceased to exist. A flight from Toronto to Frankfurt that operated weekly in March 2020 might not have operated at all in April 2020, directly reducing the probability that an infected traveller in one region could reach another. The network contracted dramatically, cutting off connections that would normally accelerate disease spread.
 
-This is epidemiologically significant. A 41\% reduction in routes means entire transmission pathways simply ceased to exist. A flight from Toronto to Frankfurt that operated weekly in March 2020 might not have operated at all in April 2020. From a disease perspective, this directly reduced the probability that an infected traveler in one region could reach another. The network pruned itself dramatically, cutting off connections that would normally accelerate disease spread.
+The recovery of nodes and edges was rapid and ultimately exceeded pre-pandemic levels, and this asymmetry with passenger volume is the paper's central finding: \textit{structural recovery not only preceded volumetric recovery but substantially surpassed the pre-pandemic baseline while passenger volumes remained depressed.} Airports came back online quickly; by May--June 2020, node counts had already returned to and exceeded the pre-pandemic peak of approximately 9,600, reaching over 10,000 by mid-2020. Routes followed: by October 2020 edge counts exceeded 150,000, above the pre-pandemic maximum of 135,000. Throughout 2021, both nodes and edges remained consistently above pre-pandemic levels, with edges reaching approximately 180,000--200,000, roughly 60--70\% above the pre-pandemic average of 112,000. This means the network was not merely recovering: it was actively expanding beyond its pre-pandemic scale. This distinction is precisely why passenger volume monitoring alone is insufficient: the structural pathways through which disease moves had not only reopened but multiplied, while the volume of travellers using them remained at roughly half of pre-pandemic levels. Importation risk tracked structural scale, not volumetric recovery.
 
-The recovery of nodes and edges happened at different rates. Airports came back online relatively quickly; by late 2020, we were approaching 90\% of normal node counts. But routes recovered more slowly. Throughout 2021, edge counts remained 20-30\% below baseline. This suggests airlines prioritized maintaining hub connections but were reluctant to reinstate peripheral routes. Epidemiologically, this created a bottleneck: disease was more likely to flow through major hubs in late 2020 and 2021 than it would have been in 2019. If importation occurred through a hub airport, the network structure of 2020-2021 made it easier for infection to spread domestically from that single entry point.
+% ---------------------------------------------------------------
+% 3.3 — Fragmentation and community structure
+% ---------------------------------------------------------------
+\subsection{Fragmentation and Community Structure}
 
-The networks are not strongly connected (Figure \ref{fig:ADSB_number_strong_components_directed_undirected}). The number of strongly connected components increased significantly during the pandemic, with both directed and undirected networks showing evidence of fragmentation. Before the pandemic, the network maintained roughly 2,000-2,700 strongly connected components. The composition of these components changed dramatically during April 2020, with the largest connected core becoming much smaller relative to the total, creating more isolated sub-networks.
+The networks are not strongly connected (Figure~\ref{fig:ADSB_number_strong_components_directed_undirected}). Before the pandemic, the number of strongly connected components ranged from approximately 2,100 to 2,750 per month, reflecting seasonal variation in network connectivity. April 2020 produced 2,396 strongly connected components, within the pre-pandemic range, not above it. The more notable structural shift came in May 2020, when SCC dropped to approximately 2,000, falling below the pre-pandemic minimum. This represents the clearest network-level signature of community severance: the global air transportation system, which had functioned as a single highly connected super-network, fragmented into a larger number of smaller, locally-contained clusters. The long-haul inter-regional routes that stitched continents together dissolved first, leaving regional sub-networks that were internally connected but increasingly cut off from one another. From a public health perspective, this is the mechanism through which travel restrictions achieved containment: not simply reducing the volume of movement, but breaking the structural pathways through which a pathogen could traverse from one region to another in a small number of hops. By mid-2020, SCC had stabilised near 2,000--2,100 and remained in that range through 2021, somewhat below the pre-pandemic average of approximately 2,300.
 
 \begin{figure}[htbp]
     \begin{subfigure}[b]{\textwidth}
@@ -329,11 +268,11 @@ The networks are not strongly connected (Figure \ref{fig:ADSB_number_strong_comp
     \caption{Monthly count of strongly connected components in directed and undirected ADS-B air transportation networks.}\label{fig:ADSB_number_strong_components_directed_undirected}
 \end{figure}
 
-From a public health standpoint, fragmentation is a double-edged sword. More connected components means the network is more broken into isolated pieces. Disease cannot flow as easily between fragments. A pathogen circulating in one region might not reach another for weeks or months because the routes no longer exist. This is containment through network architecture rather than policy.
+From a public health standpoint, fragmentation is a double-edged phenomenon. Greater fragmentation means disease cannot flow as easily between isolated sub-networks; a pathogen circulating in one region might not reach another for weeks or months because the routes no longer exist.
 
-However, this fragmentation also created risk for reintroduction. If Canada successfully suppressed a pathogen while the network was fragmented, the risk of reimportation when the network reconnected was substantial. The data shows us exactly when this vulnerability window opened: around mid-2021, when edge counts and connected components began normalizing. This timing aligns with real-world observations of variant importation in late 2021, suggesting that network reconstruction directly enabled pathogen reintroduction.
+Our edge formation data identifies when this vulnerability window opened: by mid-2021, route formation was running substantially above pre-pandemic levels, and by late 2021, community structure had reverted toward pre-pandemic configurations across both detection algorithms. Consistent with the temporal alignment documented in Section~\ref{subsec:variant_alignment}, the timing of three successive variant importation events into Canada (Alpha in December 2020, Delta in summer 2021, and Omicron in November 2021) corresponds to these successive stages of network recovery. We do not claim that network reconstruction caused these importation events; variant biology, traveller behaviour, and public health policy all contributed independently. However, the correspondence between the period of maximum network compression (April through September 2020), during which no new variant of concern established itself in Canada, and the periods of network recovery, during which each successive variant arrived with decreasing delay, suggests that structural network conditions formed part of the landscape within which importation risk evolved.
 
-Communities represent semi-isolated subnetworks within which disease can spread efficiently, but between which transmission may be more limited (Figure \ref{fig:ADSB_Louvain_Leiden_Walktrap_size_number}). We used three algorithms—Louvain, Leiden, and Infomap—to detect communities and understand whether the air network remained globally connected or fragmented into regional clusters. Each algorithm identifies clusters slightly differently, with Louvain and Leiden optimizing for modularity, while Infomap uses information-theoretic principles.
+Communities represent semi-isolated subnetworks within which disease can spread efficiently, but between which transmission may be more limited (Figure~\ref{fig:ADSB_Louvain_Leiden_Walktrap_size_number}). We used two algorithms (Louvain and Infomap) to detect communities and assess whether the air network remained globally connected or fragmented into regional clusters. Each algorithm identifies clusters differently: Louvain optimizes for modularity, while Infomap uses information-theoretic principles.
 
 \begin{figure}[htbp]
   \begin{subfigure}[b]{0.5\textwidth}
@@ -348,18 +287,6 @@ Communities represent semi-isolated subnetworks within which disease can spread 
     \label{fig:ADSB_Louvain_sie_max_com}
   \end{subfigure}
   \hfill
-  \begin{subfigure}[b]{0.5\textwidth}
-    \includegraphics[width=\textwidth]{Figures/Air-Transportation/communities_leiden_number_timeseries.pdf}
-    \caption{Number of communities (Leiden).}
-    \label{fig:ADSB_Leiden_number_com}
-  \end{subfigure}
-  \hfill
-  \begin{subfigure}[b]{0.5\textwidth}
-    \includegraphics[width=\textwidth]{Figures/Air-Transportation/communities_leiden_max_timeseries.pdf}
-    \caption{Size of the maximum community (Leiden).}
-    \label{fig:ADSB_Leiden_sie_max_com}
-  \end{subfigure}
-  \hfill
     \begin{subfigure}[b]{0.5\textwidth}
     \includegraphics[width=\textwidth]{Figures/Air-Transportation/communities_infomap_number_timeseries.pdf}
     \caption{Number of communities (Infomap).}
@@ -368,22 +295,34 @@ Communities represent semi-isolated subnetworks within which disease can spread 
   \hfill
   \begin{subfigure}[b]{0.5\textwidth}
     \includegraphics[width=\textwidth]{Figures/Air-Transportation/communities_infomap_max_timeseries.pdf}
-    \caption{Size of the maximum community (Infomap). }
+    \caption{Size of the maximum community (Infomap).}
     \label{fig:ADSB_Walktrap_sie_max_com}
   \end{subfigure}
-  \caption{Evolution of the number of communities and size of the maximum community in the ADS-B air transportation network data obtained using different community detection algorithms (Louvain, Leiden and Infomap).}
+  \caption{Evolution of the number of communities and size of the maximum community in the ADS-B air transportation network, using Louvain and Infomap community detection algorithms.}
   \label{fig:ADSB_Louvain_Leiden_Walktrap_size_number}
 \end{figure}
 
-Before the pandemic, Louvain detected approximately 15-20 major communities. By April 2020, this number increased, suggesting more regional isolation. The size of the largest community also shrank, meaning the largest cluster of well-connected airports became smaller. Leiden and Infomap showed similar patterns of community increase and fragmentation during April 2020. Epidemiologically, this matters enormously. If disease spreads more easily within communities but is limited between them, then a highly fragmented network containing disease within regional boundaries is beneficial. April 2020 provided exactly this: the network fractured into more isolated communities, reducing the probability of rapid global spread.
+Before the pandemic, Louvain detected between 19 and 47 communities per month, reflecting high natural variability in how the algorithm partitioned the network across seasons. April 2020 produced 47 Louvain communities, at the upper end of the pre-pandemic range but not beyond it. The number of communities alone therefore does not unambiguously signal pandemic-driven fragmentation. By contrast, the modularity score does: Louvain $Q$ rose from a pre-pandemic range of approximately 0.62--0.65 to a peak of approximately 0.69 in April--May 2020, indicating that while the number of communities did not dramatically increase, the communities that existed became more internally dense and more isolated from one another. Infomap community counts (which operate on a different scale, ranging 200--330 pre-pandemic) followed a similar directional pattern, with $Q$ peaking at approximately 0.62 in the same window. By late 2021, Louvain community counts had converged to 14--16 per month, lower and more stable than the volatile 2019 baseline, and modularity values had declined toward pre-pandemic levels, indicating that the network had reintegrated into a more uniformly connected structure.
 
-But by late 2021, community structure began reverting to pre-pandemic patterns. The number of communities decreased as routes reopened, detected similarly across all three algorithms. This reintegration of the network created new risk: as communities merged back together, new transmission pathways opened. Disease that was trapped in one region in April 2020 could now reach another region by December 2021. This is why the recovery phase of 2021 was epidemiologically important. It wasn't just about restoring travel; it was about restoring the global connectivity that enables pathogens to spread globally.
+A key question for both algorithms is whether the pandemic actually increased network modularity, meaning the degree to which communities became more internally dense and inter-community connections more sparse. Modularity score ($Q$) quantifies this: values near 0 indicate weak community structure, while values approaching 1 indicate strong partitioning. In pre-pandemic months, Louvain modularity scores ranged from approximately $Q \approx 0.62$--$0.65$, consistent with a geographically structured but globally integrated network. By April--May 2020, modularity peaked at approximately $Q \approx 0.69$, indicating that pandemic-era route cancellations genuinely increased the isolation between communities even without dramatically changing their number. Infomap $Q$ followed the same pattern, rising from a pre-pandemic baseline of approximately 0.57--0.60 to a peak near 0.62 in the same window. This finding is directly relevant to the concept of \textit{community severance} in the transport and health literature: travel restrictions in 2020 did not merely reduce movement volume, they structurally tightened regional clusters and weakened the inter-community connections that enable rapid global disease dispersal. The gradual return to lower modularity values through 2021 tracks the reopening of these cross-community pathways and corresponds temporally to the period of accelerated variant importation documented in Section~\ref{subsec:variant_alignment}. Both algorithms agreed on the directional pattern: peak modularity in spring 2020 and gradual decline through 2021, though they differ in the absolute community counts they produce, reflecting their different optimization objectives.
 
-Understanding community structure can inform targeted interventions: travel restrictions between communities may be more effective than restrictions within communities. The temporal changes in community structure suggest periods when the network became more or less fragmented, with direct implications for containment strategies.
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=\textwidth]{Figures/Air-Transportation/modularity_timeseries.pdf}
+    \caption{Monthly modularity scores ($Q$) for the ADS-B air transportation network, computed using Louvain and Infomap community detection algorithms. Both algorithms show a peak in April--May 2020, coinciding with the period of maximum route dissolution and network fragmentation, followed by a gradual decline through 2021 as cross-community connectivity was restored.}
+    \label{fig:ADSB_modularity_timeseries}
+\end{figure}
 
+If disease spreads more easily within communities but is limited between them, then a highly fragmented network containing disease within regional boundaries is beneficial from a public health perspective. April 2020 provided exactly this: the network fractured into more isolated communities, reducing the probability of rapid global spread.
+
+By late 2021, community structure began reverting to pre-pandemic patterns. As communities merged back together, new transmission pathways opened. Recovery involved not only restoring passenger volumes but reinstating the global connectivity that enables rapid pathogen dispersal. Understanding community structure can therefore inform targeted interventions: travel restrictions between communities may be more effective than restrictions within them, and the temporal changes documented here identify specific periods when such restrictions would have had greatest impact.
+
+% ---------------------------------------------------------------
+% 3.4 — Centrality shifts (formerly 3.1)
+% ---------------------------------------------------------------
 \subsection{Centrality Shifts: Which Airports Control Disease Introduction?}
 
-Betweenness centrality measures how much an airport lies on the shortest paths between other airports (Figure \ref{fig:ADSB_max_betweenss_centality}). Chicago O'Hare International Airport (KORD) consistently exhibited the highest betweenness centrality among United States airports from 2019 to 2021, reflecting its role as a major national and international hub. However, exceptions to this trend occurred in specific months. In July 2019 and July 2021, Wittman Regional Airport (KOSH) in Wisconsin displayed the highest centrality, while in May 2021, Teterboro Airport (KTEB) in New Jersey took the lead.
+Betweenness centrality measures how much an airport lies on the shortest paths between other airports (Figure~\ref{fig:ADSB_max_betweenss_centality}). Chicago O'Hare International Airport (KORD) consistently exhibited the highest betweenness centrality among United States airports from 2019 to 2021, reflecting its role as a major national and international hub. Exceptions occurred in specific months: in July 2019 and July 2021, Wittman Regional Airport (KOSH) in Wisconsin displayed the highest centrality, while in May 2021, Teterboro Airport (KTEB) in New Jersey led.
 
 \begin{figure}[htbp]
     \begin{subfigure}[b]{\textwidth}
@@ -396,22 +335,27 @@ Betweenness centrality measures how much an airport lies on the shortest paths b
     \caption{Maximum monthly PageRank centrality.}
     \label{fig:ADSB_max_Pagerank_centality}
     \end{subfigure}
-    \caption{Monthly maximum centrality measures for air transportation networks. Subfigure (a) shows the maximum betweenness centrality across graphs, while subfigure (b) displays the maximum PageRank centrality. Airport names above each data point indicate the airports corresponding to the maximum centrality values in each graph, representing monthly snapshots of network properties from the dataset.}\label{fig:ADSB_max_betweeneess_Pagerank_Closeness_centalities}
+    \caption{Monthly maximum centrality measures for air transportation networks. Subfigure (a) shows maximum betweenness centrality; subfigure (b) shows maximum PageRank centrality. Airport codes above each data point identify the airport with the highest centrality value in each monthly snapshot.}\label{fig:ADSB_max_betweeneess_Pagerank_Closeness_centalities}
 \end{figure}
 
-These anomalies illustrate an important point: airports with relatively small passenger volumes can still exhibit high betweenness centrality if they serve as critical connectors within specific regional transportation networks. Thomson Airport in northern Manitoba, for instance, has high centrality because it acts as a key hub for travel to and from remote northern communities. Similarly, KOSH's centrality spikes in July due to its role as host of EAA AirVenture Oshkosh, the world's largest annual aviation gathering. Such examples highlight how centrality is not solely a function of size or traffic volume, but also of an airport's structural importance within the broader network.
+These observations illustrate an important point: airports with relatively small passenger volumes can still exhibit high betweenness centrality if they serve as critical connectors within specific regional transportation networks. Wittman Regional Airport's July spikes reflect its role as host of EAA AirVenture Oshkosh, the world's largest annual aviation gathering.
 
+It is worth addressing directly whether the KOSH spikes represent genuine public health signal or structural artifacts. EAA AirVenture brings hundreds of thousands of visitors to Oshkosh, but the majority arrive on small general aviation aircraft (Cessnas, Pipers, and similar light planes), rather than commercial airliners. Our network edges are weighted by estimated passenger count, assigning a volume of 2 passengers to flights where the aircraft type could not be identified (the majority of general aviation). A network of several thousand single-engine aircraft is structurally different from a network of equivalent node-count served by widebody jets: the former represents high topological connectivity at very low passenger throughput per edge. In the unweighted network, KOSH's structural centrality in July is real; it is genuinely on many shortest paths during the AirVenture period. However, its \textit{epidemiological} importation risk is not proportional to this betweenness score, because the volume of potentially exposed travellers on any single route is an order of magnitude lower than at a commercial hub. This discrepancy is a known limitation of graph-theoretic centrality when applied to heterogeneous networks where edges vary widely in capacity. We therefore recommend that any operational surveillance tier based on centrality metrics incorporate a \textit{passenger-weighted betweenness} measure, where path weights reflect the total passengers that could traverse each edge, rather than purely topological betweenness. Under such a weighting, KOSH's July spikes would diminish substantially relative to KORD. The development of passenger-weighted centrality metrics appropriate for ADS-B data is a priority for future work.
 
-From an epidemiological perspective, betweenness centrality measures the extent to which a node (an airport or city) lies on the shortest paths between other nodes. In disease transmission terms, locations with high betweenness centrality act as critical bridges for disease transmission. An infected individual traveling through a high-betweenness node has a higher probability of seeding infections in multiple downstream locations. KORD's consistent high betweenness centrality suggests its critical role as a potential disease dissemination hub. Changes in betweenness centrality over time (such as the shifts observed during the COVID-19 pandemic) directly translate to changes in importation risk profiles.
+From an epidemiological perspective, locations with high betweenness centrality act as critical bridges for disease transmission. An infected individual travelling through a high-betweenness node has a higher probability of seeding infections in multiple downstream locations. Chicago O'Hare's consistent high betweenness centrality suggests its sustained role as a potential disease dissemination hub. Changes in betweenness centrality over time translate directly to changes in importation risk profiles.
 
+PageRank centrality captures something distinct: the quality of an airport's connections (Figure~\ref{fig:ADSB_max_Pagerank_centality}). Addison Airport (KADS) in Texas consistently demonstrated the highest PageRank centrality, with exceptions in July 2019 and July 2021 when Wittman Regional Airport (KOSH) led, August 2021 when Chicago O'Hare led, and November and December 2021 when DeKalb-Peachtree Airport (KPDK) in Georgia showed the highest centrality. KPDK's elevated PageRank in late 2021 is consistent with a pattern observed for other general aviation airports: as the commercial network recovered and hub-to-hub routes were restored, well-connected regional airports serving dense metropolitan areas temporarily exhibited outsized structural importance relative to their passenger volume.
 
-PageRank centrality captures something different: the quality of an airport's connections (Figure \ref{fig:ADSB_max_Pagerank_centality}). Addison Airport (KADS) in Texas consistently demonstrated the highest PageRank centrality, with exceptions in July 2019 and July 2021 when Wittman Regional Airport (KOSH) held the highest centrality, August 2021 when Chicago O'Hare (KORD) exhibited the highest centrality, and October and December 2021 when Portland International Airport (KPDX) in Oregon showed the highest centrality. These fluctuations indicate shifts in the relative importance of various locations within the network as the recovery progressed.
+In disease transmission networks, high PageRank indicates locations that serve as epidemiological amplifiers: nodes that are not only well-connected but connected to other well-connected locations, creating pathways for rapid outbreak propagation. A moderately busy airport connected to major international hubs can seed outbreaks across multiple secondary hubs simultaneously, effectively shortening the time to global dispersal. This cascading effect is particularly consequential for diseases with significant asymptomatic transmission, where infected travellers may transit through hub airports undetected. These network bottlenecks become strategic priorities for surveillance and intervention, as disrupting transmission at high-PageRank nodes can disproportionately reduce outbreak spread relative to lower-ranked locations with similar traffic volume.
 
-From a public health perspective, PageRank centrality measures a node's importance based on both the number and quality of its connections. In disease transmission networks, high PageRank indicates locations that serve as epidemiological amplifiers—nodes that are not only well-connected but connected to other well-connected locations, creating pathways for rapid outbreak propagation. During pandemic emergence, PageRank captures what passenger volume alone cannot: the structural role a location plays in shaping transmission chains. A moderately busy airport connected to major international hubs can seed outbreaks across multiple secondary hubs simultaneously, effectively shortening the time to global dispersal. This cascading effect is particularly critical for diseases with significant asymptomatic transmission, where infected travelers may transit through hub airports undetected. These network bottlenecks become strategic priorities for surveillance and intervention, as disrupting transmission at high-PageRank nodes can disproportionately reduce outbreak spread compared to lower-ranked locations with similar traffic volume.
+Closeness centrality, which measures average shortest-path distance from a node to all others, was computed but showed minimal temporal variation, hovering near the maximum value of 1.0 throughout the 36-month period for the airports with highest scores. Rather than indicating a failure of the metric, this stability is itself epidemiologically informative: the topological skeleton of the North American and European air network is so robust that even a 70\% collapse in passenger volume and a 41\% loss of routes did not meaningfully increase the hop-count between major regions within the giant connected component. Disease introduced at any major hub could still reach any other major hub in approximately the same number of steps in April 2020 as in January 2019. The network compressed in volume and lost peripheral connections, but its core remained compact and topologically intact. Because closeness centrality did not differentiate risk across the study period, we exclude it from the main comparative analysis and focus on the high-variance metrics, betweenness and PageRank, which tracked the pandemic's impact on network structure.
 
+% ---------------------------------------------------------------
+% 3.5 — Edge dynamics (formerly 3.2)
+% ---------------------------------------------------------------
 \subsection{Edge Dynamics: Pathways Opening and Closing}
 
-Edge formation and dissolution reveal the rate at which the network restructures. In April 2020, we observed a dramatic drop in edge formation: far fewer new routes were opened compared to April 2019 and April 2021 (Figure \ref{fig:ADSB_edges_formed}). Simultaneously, we observed notable edge dissolution in the network (Figure \ref{fig:ADSB_edges_dissolved}). The April 2020 data shows the speed at which airlines responded to pandemic conditions—within weeks, the network pruned itself down to essential connections.
+Edge formation and dissolution reveal the rate at which the network restructures. In April 2020, we observed a dramatic drop in edge formation: far fewer new routes were opened compared to April 2019 and April 2021 (Figure~\ref{fig:ADSB_edges_formed}). Simultaneously, we observed substantial edge dissolution (Figure~\ref{fig:ADSB_edges_dissolved}). Within weeks, the network had contracted to essential connections.
 
 \begin{figure}[htbp]
     \centering
@@ -428,116 +372,76 @@ Edge formation and dissolution reveal the rate at which the network restructures
         \caption{Edges Formed in the Network.}
         \label{fig:ADSB_edges_formed}
     \end{subfigure}
-    \caption{Monthly dynamics of the ADS-B air transportation network. (a) The number of edges dissolution each month from 2019 to 2021. (b) The number of edge formations each month over the same period. These figures illustrate the fluctuating nature of connections within the network, emphasizing periods of high connectivity changes.}
+    \caption{Monthly dynamics of the ADS-B air transportation network. (a) Edges dissolved each month from 2019 to 2021. (b) Edges formed each month over the same period.}
     \label{fig:ADSB_edges_comparison}
 \end{figure}
 
-Epidemiologically, edge dissolution is the mechanism through which travel restrictions work. When a route disappears, you've eliminated a direct transmission pathway. An infected person on April 20, 2020 could not fly a route that was cancelled on April 10. The rapid edge dissolution in spring 2020 directly reduced importation risk by removing pathways faster than the virus could traverse them. Similarly, the notable decrease in edge dissolutions in May 2020 (compared to May 2019 and May 2021) indicates the network had already pruned to its minimal viable size.
+Edge dissolution is the mechanism through which travel restrictions work. Route cancellation directly eliminates transmission pathways; an infected traveller cannot traverse a route that no longer operates. The rapid edge dissolution in spring 2020 directly reduced importation risk by removing pathways faster than the virus could traverse them. The notable decrease in edge dissolutions in May 2020 (compared to May 2019 and May 2021) indicates the network had already contracted to its minimal viable size.
 
-From an epidemiological standpoint, tracking edge formation and dissolution captures the creation of new transmission pathways and the elimination of existing ones. During the COVID-19 pandemic, the dramatic edge dissolution in April 2020 represented route cancellations and travel restrictions. This quantifies the impact of network-based interventions on transmission potential, showing us exactly when the network structure was changing most rapidly.
 
-But there's a counterpoint: edge formation remained sluggish through all of 2020 and much of 2021. New routes opened slowly. This meant that when travel started recovering, it initially restored the most critical connections (major hub-to-hub routes) while leaving peripheral connections dormant. Epidemiologically, this created a period where disease was more likely to flow through major hubs and less likely to reach smaller communities through direct routes. It's not containment through absence of travel, it's channeling travel through fewer pathways.
+A counterpoint is that edge formation remained sluggish through all of 2020 and much of 2021. When travel began recovering, it initially restored the most critical connections (major hub-to-hub routes) while leaving peripheral connections dormant. This created a period where disease was more likely to flow through major hubs and less likely to reach smaller communities via direct routes, not through the absence of travel, but rather the concentration of movement through a reduced set of pathways.
 
-\subsection{Recovery and Persistent Vulnerability}
+% ---------------------------------------------------------------
+% 3.6 — Recovery and persistent vulnerability (formerly 3.3)
+% ---------------------------------------------------------------
+\subsection{Recovery and Persistent Vulnerability}\label{subsec_recovery_Persistent}
 
-By December 2021, the network had structurally recovered to roughly 80-90\% of pre-pandemic capacity in terms of nodes and edges. Community numbers returned to near-baseline. Centrality measures stabilized. This appears to be recovery. But the Canadian border data tells a more sobering story: arrivals remained 54\% below baseline. How can the network be 80-90\% recovered while arrivals are 54\% below normal?
+By December 2021, the network had structurally exceeded pre-pandemic capacity: node counts reached approximately 11,000 (versus a pre-pandemic peak of 9,600) and edge counts approached 190,000 (versus a pre-pandemic peak of 135,000 and average of 112,000). Community counts had converged to 14--16 per month, lower and more stable than the volatile 2019 baseline, and modularity had declined from its 2020 peak, indicating a more uniformly integrated network. However, Canadian border arrival data presents a strikingly different picture: arrivals remained 58\% below pre-pandemic baseline (2,966,051 arrivals versus 7,142,000 in December 2019). This divergence between structural expansion and volumetric depression is the clearest evidence that passenger volume monitoring and network structure monitoring capture different things. The network had grown beyond its pre-pandemic scale while the travellers using it remained scarce. A surveillance system calibrated only to passenger volume would have seen continued depression of risk into late 2021. A system monitoring network structure would have identified an expanding, increasingly connected network that was creating more importation pathways even as each individual pathway carried fewer travellers.
 
-The answer is that the remaining 20\% of network capacity that hadn't recovered is concentrated on international routes, which recovered more slowly than domestic routes. From a public health perspective, this is critical: the network structure recovered faster than international travel. The network was more than 90\% recovered for domestic travel but only 50\% recovered for international travel. This asymmetry created a situation in late 2021 where the network structure looked healthy but importation risk remained elevated because the specific type of travel that imports disease, international arrivals, remained depressed.
+The data tells a coherent epidemiological story spanning 2019--2021. From January through March 2020, the network was vulnerable: a newly emerged pathogen could spread globally via intact routes. In April 2020, that window closed rapidly. The network collapsed across every measured dimension: volume (78\% drop), routes (41\% drop), connected airports (12\% drop), and connectivity (increased fragmentation). This compression persisted through much of 2020 and into 2021.
 
-The data tells a coherent epidemiological story spanning 2019-2021. From January through March 2020, the network was vulnerable: a newly emerged pathogen could spread globally via intact routes. In April 2020, that window slammed shut. The network collapsed across every measured dimension: volume (78\% drop), routes (41\% drop), connected airports (12\% drop), and connectivity (increased fragmentation). This compression persisted through much of 2020 and into 2021.
+By late 2021, the network was reassembling. Edges reformed, communities reconnected, and centrality measures returned toward pre-pandemic values. The structure recovered faster than the volume of travellers. This matters because a reconstructed network operating at 50\% capacity is epidemiologically different from a reconstructed network at full capacity: the same number of infected travellers reaches fewer total people.
 
-But by late 2021, the network was reassembling. Edges reformed. Communities reconnected. Centrality measures returned to normal. However, the Canadian border data shows that international arrivals remained 54\% below baseline by December 2021. The structure recovered faster than the volume of travelers. This matters because a reconstructed network operating at 50\% capacity is epidemiologically different from a reconstructed network at full capacity: the same number of infected travelers reaches fewer total people.
-
-The persistent gap between network recovery (structural) and travel recovery (volume) in late 2021 suggests that disease importation risk evolved along multiple timescales. The April 2020 window, when network structure alone constrained importation, was relatively brief. By June 2020, the network was stable but depressed. By late 2021, it was recovering but still below capacity. This extended period of constrained but restructuring travel created shifting vulnerability: highest in pre-pandemic 2019 (vulnerable to first introduction), lowest in April-June 2020 (structural constraint), elevated through 2020-2021 (recovering structure, low volume), and normalizing by late 2021 (recovering structure and volume). These temporal changes in network structure and travel volume provide epidemiologists with quantifiable measures of when disease importation risk was highest, and show that this risk was not static across the pandemic, but shifted dramatically as the network recovered.
+The persistent gap between structural recovery and volumetric recovery in late 2021 suggests that disease importation risk evolved along multiple timescales: highest in pre-pandemic 2019 (full network, no immunity), lowest in April--June 2020 (structural constraint), elevated but shifting through 2020--2021 (recovering structure, low volume), and normalizing by late 2021 (recovering structure and volume). These temporal changes provide epidemiologists with quantifiable measures of when disease importation risk was highest, demonstrating that this risk was not static across the pandemic but shifted substantially as the network recovered.
 
 
 \section{Discussion}
 
-Our analysis reveals something that surveillance based on passenger volume alone would miss: network structure matters as much as the number of travelers. When Canada experienced a 92\% collapse in arrivals in April 2020, that was obviously important. But just as important was what happened to the network itself. Routes disappeared. Communities fragmented. Hub airports remained bottlenecks even as the overall system contracted. These structural changes are not captured by looking at total passenger numbers.
+Our analysis reveals a limitation of surveillance approaches based on passenger volume alone: network structure matters as much as the number of travellers. When Canada experienced a 92\% collapse in arrivals in April 2020, this represented an obvious reduction in importation risk. Of equal importance, however, was the simultaneous restructuring of the network itself: routes disappeared selectively, communities fragmented, and hub airports remained bottlenecks even as the overall system contracted. These structural changes are not captured by monitoring total passenger numbers.
 
-This distinction has real implications for disease importation. If a pathogen's risk is purely proportional to travel volume, then monitoring passenger counts is sufficient. But our findings suggest this isn't quite right. In April 2020, the network lost 41\% of its routes while only losing 12\% of its airports. This asymmetry created a situation where infection imported through a hub airport (say, Toronto Pearson) would have more difficulty reaching smaller communities directly, but easier access through the remaining routes. A surveillance system looking only at passenger volume would see a 92\% reduction in risk. A system looking at network structure would see a different risk profile: lower overall, but concentrated through fewer pathways.
+This distinction has real implications for disease importation. If a pathogen's risk is purely proportional to travel volume, then monitoring passenger counts is sufficient. However, our findings suggest this relationship is more complex. In April 2020, the network lost 41\% of its routes while losing only 12\% of its airports. This asymmetry created a situation where infection imported through a hub airport such as Toronto Pearson would have had difficulty reaching smaller communities directly, but easier access through the remaining routes. A surveillance system monitoring only passenger volume would have registered a 92\% reduction in risk. A system accounting for network structure would have identified a different risk profile: lower overall, but concentrated through fewer pathways.
 
-This matters for future pandemics. If we face a new pathogen tomorrow, counting passengers tells us one part of the story. Analysing the network structure tells us another. We need both.
+A further definitional precision is warranted. Throughout this paper, ``importation risk'' refers to the structural potential for an infected traveler to enter and seed infection in a new region. This is not equivalent to a node's betweenness centrality alone. A high-betweenness airport may have many transiting passengers who remain in a sterile international transit zone and never enter the host country's population; in which case the epidemiological seeding potential is substantially lower than the topological centrality score implies. Our analysis does not distinguish between transit and entry passengers, as this information is not available in the ADS-B dataset. This is a consequential limitation: KORD's high betweenness includes a large share of connecting passengers who do not clear customs in Chicago. Operational surveillance tiers should therefore incorporate data on entry versus transit volumes alongside network centrality measures. Where airport-level transit data is available from national aviation authorities, it should be used to deflate raw betweenness scores to reflect only passengers who enter the domestic population at each node.
 
-Static network analyses are fundamentally limited during crises. If we had taken a snapshot of the air transportation network in April 2020, we would have seen a different structure than in May 2020. And different again in December 2020. Each snapshot is accurate for that moment, but none of them capture what's happening: a system that's actively restructuring.
+This matters for future pandemics. In the event of novel pathogen emergence, passenger counts convey one dimension of importation risk; network structure analysis conveys another, and both are needed for comprehensive assessment.
 
-Our 36-month dataset showed this evolution clearly. The number of communities increased in spring 2020, suggesting fragmentation into regions. By late 2021, communities were merging again as routes reopened. Centrality measures shifted as different airports became critical connectors at different times. These changes happened continuously, not in discrete jumps. A static analysis would miss this continuous restructuring.
+Static network analyses are fundamentally limited during crises. A snapshot of the air transportation network taken in April 2020 would show a different structure than one taken in May 2020, and different again in December 2020. Each snapshot accurately represents that moment, but none captures the ongoing process: a system actively restructuring. Our 36-month dataset makes this evolution visible. The number of communities increased in spring 2020, indicating fragmentation into regional clusters. By late 2021, communities were merging again as routes reopened. Centrality measures shifted as different airports became critical connectors at different times. A static analysis would miss this continuous restructuring entirely.
 
-For public health, this matters because disease importation risk is not static during a crisis. It evolves as the network evolves. April 2020 presented one risk profile (low volume, fragmented structure). December 2021 presented another (low volume, but increasingly integrated structure). The risk in late 2021 was different from April 2020, not just because fewer people were traveling, but because they were traveling through a different network topology. Temporal analysis reveals these changes. Static snapshots hide them.
+Disease importation risk is not static during a crisis; it evolves as the network evolves. April 2020 presented one risk profile: low volume and highly fragmented structure. December 2021 presented another: low volume but increasingly integrated structure. The risk in late 2021 differed from April 2020 not only because fewer people were travelling, but because they were travelling through a fundamentally different network topology. Temporal analysis reveals these changes; static snapshots obscure them.
 
-This insight applies beyond COVID-19. Any public health crisis that affects travel, whether travel bans, fuel shortages, infrastructure damage, or political instability, will reshape networks. Understanding how that reshaping affects disease risk requires tracking the network over time, not just measuring it once.
+This insight extends beyond COVID-19. Any public health crisis affecting travel (whether travel bans, fuel shortages, infrastructure damage, or political instability) will reshape transportation networks. Understanding how that reshaping affects disease risk requires tracking the network over time, not measuring it once.
 
-Chicago O'Hare remained the most important hub throughout the pandemic, measured by betweenness centrality. This makes intuitive sense: it's a major connector, and the pandemic didn't change that fundamental role. But the story is more nuanced. PageRank centrality showed more volatility, with different airports becoming critical at different times. Addison Airport in Texas, a regional hub with moderate traffic volume, showed high PageRank in some months because of how well it connected to other hubs. Wittman Regional Airport spiked in July due to EAA AirVenture.
+Chicago O'Hare remained the most structurally important hub throughout the pandemic as measured by betweenness centrality, consistent with its established role as a major national and international connector. However, PageRank centrality reveals greater complexity: this measure showed more volatility, with different airports becoming critical at different times. Addison Airport in Texas demonstrated high PageRank in several months due to the quality of its connections to other hubs. Wittman Regional Airport spiked in July due to EAA AirVenture.
 
-The practical implication: focusing surveillance on the largest airports by volume is reasonable, but incomplete. Chicago O'Hare matters. So does Toronto Pearson for Canadian importation. But smaller hubs that happen to be well-connected can also be critical entry points. The pandemic illustrated this: even as passenger volume collapsed, the remaining travelers often flowed through major hubs. If infection entered at a hub, the downstream reach was substantial.
+The practical implication is that focusing surveillance on the largest airports by passenger volume is reasonable but insufficient. Chicago O'Hare matters; so does Toronto Pearson for Canadian importation. However, smaller hubs that are structurally well-connected can also be critical entry points. The pandemic illustrated this: even as passenger volume collapsed, remaining travellers often concentrated through major hubs. If infection entered at a hub, the downstream reach was substantial.
 
-For policy, this suggests tiered surveillance. Major hubs like O'Hare and Pearson deserve intensive monitoring. But secondary hubs and regional airports that sit at the intersection of multiple routes deserve attention too. The network structure reveals which airports matter most at any given time—and this changes as the network evolves.
+For policy, this suggests a \textit{Centrality-Weighted Surveillance Tier} system. Major international hubs (Toronto Pearson, Vancouver International, Chicago O'Hare) should receive permanent high-intensity screening proportional to their consistently dominant betweenness and PageRank values. A second tier of regionally important secondary airports should receive elevated monitoring during periods when their centrality scores rise above defined thresholds. A third tier of smaller regional airports, like Addison (KADS) or Wittman (KOSH), would trigger temporary high-intensity screening during specific high-centrality windows: KOSH in July each year during EAA AirVenture, or any regional airport that transiently becomes a critical connector as hub-to-hub routes shift. Under this framework, monthly network analysis would update each airport's tier assignment dynamically, so that a new international route opening at a regional airport automatically triggers a reassessment of its screening intensity. This approach directs surveillance resources in proportion to actual structural risk rather than historical passenger volume, and would have flagged the late-2021 recovery of international connectivity as a period warranting heightened monitoring, precisely when Omicron arrived.
 
-Our findings suggest that effective pandemic response requires understanding transportation networks in real time. Canada's border agencies tracked arrivals (the data we used), which was valuable. But they operated largely independently of network analysis. What if they had known that in late 2021, international arrivals were recovering slowly while the network structure was rapidly reconnecting? They could have anticipated that new routes opening would create unexpected pathways for imported disease.
+Effective pandemic response requires understanding transportation networks in real time. Border agencies tracked arrivals, which was valuable. However, they operated largely independently of network analysis. Had agencies known that in late 2021 international arrivals were recovering slowly while network structure was rapidly reconnecting, they could have anticipated that reopening routes were creating unexpected importation pathways.
 
-More broadly, this work suggests that public health agencies need network intelligence alongside traditional epidemiological surveillance. Knowing that a pathogen is circulating in Europe is one piece of information. Knowing which airports connect Europe to North America, and how those connections are changing, is another. The second piece isn't typically part of border health screening.
+More broadly, public health agencies require network intelligence alongside traditional epidemiological surveillance. Knowing that a pathogen is circulating in Europe is one piece of information. Knowing which airports connect Europe to North America, and how those connections are changing, is another that is not typically part of border health screening.
 
-Based on our findings, we propose the following concrete recommendations for public health agencies:
-\begin{enumerate}
-\item  Establish Network Monitoring Units
+The methods developed here are not specific to Canada or to COVID-19. The OpenSky Network provides global ADS-B coverage; the Python package operates on any directed weighted network; and the community detection and centrality approaches are standard graph-theoretic tools. Any public health authority with access to flight data could replicate this analysis for their own region. The Canada--US--Europe focus serves as a proof of concept with well-validated outcome data, but the framework applies equally to monitoring importation risk in other regions. Freely available data and open-source tools substantially lower the barrier to adoption, requiring no proprietary data sources.
 
-Public health agencies should create dedicated teams tasked with monitoring transportation networks in real time, not just during crises. This means having access to flight data (ADS-B, IATA, or airline reports), the ability to construct monthly or weekly networks, and automated systems to flag structural changes. When a major route opens or closes, when centrality rankings shift, or when the number of connected components increases, these should be flagged as potentially important epidemiological changes.
+These findings carry concrete implications for public health practice. Most fundamentally, passenger volume monitoring alone is insufficient for importation risk assessment. Public health agencies require complementary network intelligence: access to flight data, capacity to construct and update network representations on a monthly or weekly basis, and automated flagging of structural changes such as rapid edge dissolution, community fragmentation, or centrality shifts. The tools developed here, and the freely available OpenSky data on which they rely, make this feasible at modest cost.
 
-Practically, this could start small: one analyst monitoring Canada-US-Europe routes using OpenSky data. But it should be systematic and continuous. The investment is modest (a person plus software) but the payoff is significant: early warning of network changes that affect importation risk.
-\item Implement Tiered Surveillance Based on Network Centrality
+Surveillance resources should be allocated in proportion to network centrality rather than passenger volume alone. Betweenness and PageRank centrality identify airports whose structural position makes them disproportionately important for disease transmission, sometimes independently of their size. For Canada, this means intensive screening at major international hubs such as Toronto Pearson and Vancouver International, but also dynamic monitoring of secondary airports whose centrality shifts as the network evolves. A new international route opening at a regional airport changes that airport's epidemiological importance immediately; network analysis captures this in real time whereas passenger volume statistics lag substantially.
 
-Rather than treating all airports equally, public health agencies should implement tiered surveillance where intensive screening and early warning systems focus on high-centrality airports. But "high-centrality" should be defined network-structurally, not just by volume.
+The asymmetric recovery documented here has a direct operational implication: network structure and passenger volume diverged sharply in 2021. By December 2021, structural metrics (nodes, edges, community connectivity) had not only recovered but substantially exceeded pre-pandemic levels. International passenger arrivals, however, remained 58\% below the equivalent 2019 month. A surveillance system calibrated to structural recovery would have correctly identified an expanding network with growing importation pathways. A system calibrated to passenger volume would have continued to register depressed risk. Both signals are real; neither alone is sufficient.
 
-For Canada, this means: intensive screening at Toronto Pearson and Vancouver (high-volume hubs). But equally important: secondary airports that are well-connected to other hubs (high PageRank). And critically: monitoring should adjust as the network changes. If a new airline route opens connecting a secondary Canadian airport to a major international hub, that airport's epidemiological importance changes immediately. Network analysis reveals this; passenger volume statistics lag months behind.
+Finally, these findings argue for pandemic preparedness planning that explicitly accounts for network restructuring, not only volume reduction. Networks do not simply shrink during crises; they reorganize, concentrating flow through fewer pathways and amplifying the epidemiological importance of major hubs. Contingency plans should anticipate this concentration effect and ensure that hub airports receive surveillance resources commensurate with their increased structural importance during network compression, not their pre-crisis passenger volumes. Building this capacity requires integrating network science expertise into public health institutions, a gap that COVID-19 has made urgent.
 
-Operationally, agencies could receive monthly network briefings showing which airports are currently most central by different measures. Surveillance resources could be allocated dynamically based on these reports.
+\subsection{Limitations}
 
-\item  Develop Early Warning Systems for Network Restructuring
+This analysis has several constraints that should be acknowledged. The geographic scope is limited to Canada, the United States, and Europe, and our findings cannot be directly extrapolated to importation dynamics in other regions. Passenger volume estimates based on aircraft capacity represent upper bounds; actual numbers of infected travellers could be lower if flights were lightly booked.
 
-When the network restructures rapidly (as happened in March-April 2020), disease importation risk changes. Public health agencies should have algorithms that detect sudden changes in network structure: edges disappearing rapidly, communities fragmenting, hub centrality shifting. These should trigger alerts, similar to how epidemiological surveillance systems flag unusual case clusters.
+A specific and important limitation concerns ADS-B sensor coverage density. The OpenSky Network relies on a volunteer receiver network whose density was substantially higher in North America and Europe than in other regions during 2019--2021. In regions with sparse coverage, individual flights may not have been detected by any receiver, and routes that remained operational could appear dissolved in our network when they were in fact still active. This geographic sensor bias has two consequences. First, our network may overstate the degree of route dissolution in regions with historically lower ADS-B coverage; dissolution events in those regions could reflect loss of sensor coverage rather than actual route cancellation. Second, our validation against Statistics Canada international arrival data is appropriate for the geographic scope of the study, but extrapolating the analysis to regions with weaker ADS-B infrastructure would require independent validation against local aviation authority data. For Canada, the United States, and most of Europe, where ADS-B carriage is legally mandated and sensor coverage is dense, this concern is substantially mitigated; the risk is more acute for routes connecting to regions outside our study area. Future work applying this framework globally should incorporate OpenSky sensor density maps to weight edge observations by coverage confidence and distinguish between sensor-driven and policy-driven route dissolution.
 
-\item  Combine Network and Epidemiological Data Operationally
-
-Our analysis kept network data and Canadian border arrival data separate—we analyzed them in parallel. But operationally, these should be integrated. A real-time system would show: "Arrivals from Europe are down 50\%, but the Europe-Canada routes that remain are increasingly concentrated through Toronto Pearson. One infected arrival at Pearson has higher downstream reach due to hub centrality than five infected arrivals distributed across five smaller airports."
-This integration requires cross-departmental work. Border agencies track arrivals. Epidemiologists track disease. Network analysts (currently rare in public health) understand transportation structure. These groups need to communicate routinely, ideally through a unified dashboard.
-
-\item Plan for Different Network Configurations, Not Just Volume Changes
-
-Most pandemic planning assumes networks will continue operating normally, just with fewer travelers. Our findings show this isn't accurate. Networks restructure. Routes disappear. Hubs become even more critical. Public health contingency plans should include scenarios for network restructuring:
-\begin{itemize}
-\item Scenario A: Network intact, 50\% volume reduction (Importation risk: reduced proportionally)
-\item Scenario B: Network loses 30\% of routes, hubs unaffected (Importation risk: concentrated through hubs, regional containment possible)
-\item
-Scenario C: Network loses 40\% of routes, hubs consolidated (Importation risk: very concentrated, easier to intercept)
-\end{itemize}
-Each scenario requires different surveillance strategies. Scenario A needs broad coverage; Scenario C can focus resources on fewer critical airports.
-
-\item Prioritize International Routes in Surveillance
-
-Our data showed that international routes recovered more slowly than domestic routes through 2020-2021. Yet public health agencies often treat all arriving travelers the same. International arrivals are where diseases enter a country. As our analysis showed, by December 2021, the network structure had mostly recovered, but international volume remained depressed.
-
-This suggests a concrete action: ensure that surveillance and screening at international borders remains proportional to importation risk. If international routes operate at 50\% capacity while domestic routes operate at 90\%, international arrivals deserve at least 50\% of surveillance resources, perhaps more given that they're the actual vectors for importation.
-
-\item Invest in Network Science Capability
-
-These recommendations require expertise that most public health agencies currently lack. Few epidemiologists know network analysis. Few network scientists work in public health. Bridging this gap requires: hiring network analysts into public health roles, training epidemiologists in network methods, and building relationships with academic network science groups.
-
-This isn't just an immediate need. As transportation, global trade, and human movement continue evolving, understanding how networks enable disease spread will become increasingly important. COVID-19 was a wake-up call; the infrastructure built to respond to it should be permanent.
-
-\end{enumerate}
-\subsection{Limitation}
-
-Our analysis has real constraints we should acknowledge. We focused on Canada-US-Europe, so we cannot speak to importation through other regions. Our passenger volume estimates, based on aircraft capacity, are upper bounds—the actual number of infected travelers could be lower if flights were lightly booked. The ADS-B system has coverage gaps, particularly in regions where equipment isn't mandated. Our community detection relied on three algorithms and sometimes produced different results; network community structure itself can be ambiguous.
-Additionally, we measured network structure during one specific crisis with one specific pathogen. Whether these findings generalize to other pathogens, other crises, or other networks remains unclear. COVID-19's rapid spread and severity drove dramatic policy responses. A slower pathogen might produce different network changes. A different crisis (cyberattack, conflict, climate disaster) might reshape transportation networks differently.
-
+The ADS-B system has coverage gaps in regions where equipment is not mandated, which may affect completeness for routes connecting to those areas. Community detection relied on two algorithms that sometimes produced different results, reflecting the inherent ambiguity of network community structure. Finally, we measured network structure during one specific crisis with one specific pathogen. Whether these findings generalize to other pathogens, other crises, or other transportation networks remains to be established. COVID-19's rapid spread and severity drove dramatic policy responses; a slower-moving pathogen or a different type of crisis may produce different patterns of network restructuring.
 
 \renewcommand\bibname{References}
 \phantomsection \addcontentsline{toc}{chapter}{References}
 \bibliographystyle{plain20}
 \bibliography{ref,epidemio,biblio_Arino_Julien,biblio,math_ecology}
 
-
-
-Statistics Canada. Table 24-10-0053-01  International travellers entering or returning to Canada, by type of transportation and traveller type
-DOI: https://doi.org/10.25318/2410005301-eng
 \end{document}
