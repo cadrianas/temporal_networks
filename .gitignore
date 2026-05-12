@@ -221,3 +221,5 @@ paper/*.synctex.gz
 paper/*.pdf
 paper/Figures/
 examples/plots
+
+paper/

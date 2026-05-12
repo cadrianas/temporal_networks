@@ -47,4 +47,4 @@ See `examples/` for reproducible scripts.
 
 ## License
 
-MIT License - see LICENSE file
+GPL-3.0 license 
