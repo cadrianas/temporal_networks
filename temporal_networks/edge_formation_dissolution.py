@@ -15,184 +15,13 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import numpy as np
 import os
-from datetime import datetime
-from typing import List, Optional, Dict, Tuple
-
-
-# ============================================================================
-# GAP DETECTION UTILITIES
-# ============================================================================
-
-def parse_flexible_datetime(label: str) -> Optional[datetime]:
-    """Parse datetime label in multiple formats."""
-    try:
-        return datetime.strptime(label.strip(), "%Y-%m")
-    except ValueError:
-        pass
-
-    try:
-        return datetime.strptime(label.strip(), "%Y-%m-%d")
-    except ValueError:
-        pass
-
-    try:
-        year, week = label.strip().split('-W')
-        return datetime.strptime(f"{year}-W{int(week)}-1", "%Y-W%W-%w")
-    except (ValueError, AttributeError):
-        pass
-
-    try:
-        year, quarter = label.strip().split('-Q')
-        month = (int(quarter) - 1) * 3 + 1
-        return datetime(int(year), month, 1)
-    except (ValueError, IndexError):
-        pass
-
-    try:
-        return datetime.strptime(label.strip(), "%Y")
-    except ValueError:
-        pass
-
-    return None
-
-
-def calculate_time_difference(date1: datetime, date2: datetime, unit: str = "months") -> float:
-    """Calculate time difference between two dates."""
-    if date1 > date2:
-        date1, date2 = date2, date1
-
-    if unit == "days":
-        return (date2 - date1).days
-    elif unit == "weeks":
-        return (date2 - date1).days / 7
-    elif unit == "months":
-        return (date2.year - date1.year) * 12 + (date2.month - date1.month)
-    elif unit == "years":
-        return (date2.year - date1.year) + (date2.month - date1.month) / 12
-    else:
-        raise ValueError(f"Unknown unit: {unit}")
-
-
-def detect_temporal_gaps(graph_labels: List[str],
-                        gap_threshold: int = 1,
-                        unit: str = "months") -> Dict:
-    """Detect temporal gaps and return information."""
-
-    if len(graph_labels) < 2:
-        return {
-            "has_gaps": False,
-            "num_gaps": 0,
-            "gaps": [],
-            "segments": [(0, len(graph_labels))],
-        }
-
-    parsed_dates = [parse_flexible_datetime(label) for label in graph_labels]
-
-    if any(d is None for d in parsed_dates):
-        return {
-            "has_gaps": False,
-            "num_gaps": 0,
-            "gaps": [],
-            "segments": [(0, len(graph_labels))],
-        }
-
-    gaps = []
-    segments = []
-    segment_start = 0
-
-    for i in range(1, len(parsed_dates)):
-        date_prev = parsed_dates[i - 1]
-        date_curr = parsed_dates[i]
-
-        time_diff = calculate_time_difference(date_prev, date_curr, unit=unit)
-
-        if time_diff > gap_threshold:
-            gaps.append({
-                "start_idx": i - 1,
-                "end_idx": i,
-                "start_label": graph_labels[i - 1],
-                "end_label": graph_labels[i],
-                "gap_size": time_diff,
-            })
-
-            segments.append((segment_start, i))
-            segment_start = i
-
-    segments.append((segment_start, len(graph_labels)))
-
-    return {
-        "has_gaps": len(gaps) > 0,
-        "num_gaps": len(gaps),
-        "gaps": gaps,
-        "segments": segments,
-    }
-
-
-def print_gap_report(graph_labels: List[str], gap_info: Dict, unit: str = "months") -> None:
-    """Print human-readable gap report."""
-
-    print("\n" + "=" * 80)
-    print("TEMPORAL DATA STRUCTURE ANALYSIS")
-    print("=" * 80)
-
-    print(f"\nDataset Overview:")
-    print(f"  Number of observations: {len(graph_labels)}")
-    print(f"  Time unit: {unit}")
-    print(f"  Date range: {graph_labels[0]} to {graph_labels[-1]}")
-
-    if not gap_info["has_gaps"]:
-        print(f"\n✓ Data is CONTINUOUS (no gaps detected)")
-    else:
-        print(f"\n⚠ Data has GAPS: {gap_info['num_gaps']} gap(s) detected\n")
-
-        for i, gap in enumerate(gap_info["gaps"], 1):
-            print(f"  Gap #{i}:")
-            print(f"    From: {gap['start_label']} (index {gap['start_idx']})")
-            print(f"    To:   {gap['end_label']} (index {gap['end_idx']})")
-            print(f"    Size: {gap['gap_size']:.1f} {unit}")
-            print()
-
-    print("Impact on Temporal Visualization:")
-    if gap_info["has_gaps"]:
-        print("  ✓ Edge dynamics plots show SEPARATE LINE SEGMENTS for each continuous period")
-        print("  ✓ No lines are drawn across gaps")
-        print("  ✓ Visual breaks indicate where data is missing")
-    else:
-        print("  ✓ Edge dynamics plots show CONTINUOUS LINES connecting all points")
-
-    print("\n" + "=" * 80 + "\n")
-
-
-# ============================================================================
-# PLOTTING UTILITIES
-# ============================================================================
-
-def format_large_numbers(x, pos):
-    """Format large numbers with appropriate units (k, M, B)."""
-    if x >= 1_000_000_000:
-        return f'{x/1_000_000_000:.1f}B'
-    elif x >= 1_000_000:
-        return f'{x/1_000_000:.1f}M'
-    elif x >= 1_000:
-        return f'{x/1_000:.1f}k'
-    else:
-        return f'{x:.0f}'
-
-
-def plot_with_gap_handling(ax, graph_labels: List[str], y_values, gap_segments: List[Tuple],
-                          marker='o', linestyle='-', markersize=10,
-                          linewidth=3, color='#1f77b4'):
-    """Plot data with gap handling."""
-
-    for segment_start, segment_end in gap_segments:
-        x_indices = np.arange(segment_start, segment_end)
-        y_segment = [y_values[i] for i in x_indices]
-
-        ax.plot(x_indices, y_segment, marker=marker, linestyle=linestyle,
-               markersize=markersize, linewidth=linewidth, color=color)
-
-    ax.set_xticks(range(len(graph_labels)))
-    ax.set_xticklabels(graph_labels, rotation=45, ha='right', fontsize=12, fontweight='bold')
+from typing import List, Optional, Dict
+from ._gap_utilities import (
+    detect_temporal_gaps,
+    print_gap_report,
+    plot_with_gap_handling,
+    format_large_numbers
+)
 
 
 # ============================================================================
@@ -340,10 +169,17 @@ def plot_edge_dynamics(dynamics_df: pd.DataFrame,
     try:
         fig, ax = plt.subplots(figsize=(14, 7), dpi=100)
 
-        y_values = dynamics_df[metric].values
+        # Reindex dynamics_df to match graph_labels starting from the second label
+        # Dynamics data only exists for labels[1:]
+        plot_df = dynamics_df.set_index("Graph").reindex(graph_labels[1:]).reset_index()
+        y_values = plot_df[metric].values
 
-        # FIXED: Use gap-aware plotting
-        plot_with_gap_handling(ax, graph_labels, y_values,
+        # Adjust gap_segments for the fact that dynamics_df has 1 fewer point than graph_labels
+        # Actually, it's better to keep graph_labels and put None/NaN for the first point
+        y_values_full = np.concatenate([[np.nan], y_values])
+
+        # Use gap-aware plotting
+        plot_with_gap_handling(ax, graph_labels, y_values_full,
                               gap_info["segments"],
                               marker='o', linestyle='-', markersize=12,
                               linewidth=3, color='#1f77b4')

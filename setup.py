@@ -3,10 +3,10 @@ from setuptools import setup, find_packages
 setup(
     name="temporal-network-analysis",
     version="0.1.0",
-    description="Python package for analyzing dynamic networks over time",
-    author="Ada [Your Last Name]",
-    author_email="your.email@umanitoba.ca",
-    license="MIT",
+    description="Python package for analyzing dynamic networks over time with automatic gap detection",
+    author="Adriana-Stefania Ciupeanu, Julien Arino",
+    author_email="Julien.Arino@umanitoba.ca",
+    license="GPL-3.0",
     packages=find_packages(),
     install_requires=[
         "numpy>=1.26.4",
@@ -22,7 +22,8 @@ setup(
     classifiers=[
         "Development Status :: 3 - Alpha",
         "Intended Audience :: Science/Research",
-        "License :: OSI Approved :: GPL-3.0 license",
+        "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
         "Programming Language :: Python :: 3",
+        "Topic :: Scientific/Engineering :: Mathematics",
     ],
 )

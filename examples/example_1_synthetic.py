@@ -452,7 +452,7 @@ vertex_props_gapped = vertex_properties(
     graphs=graphs_gapped,
     node_name=node_to_track,
     graph_labels=labels_gapped,
-    filename=f"./plots/gapped/synthetic_{node_to_track}_properties_gapped.csv",  # Full path
+    filename=f"synthetic_{node_to_track}_properties_gapped.csv",
     save_path="./plots/gapped/",  # For plots
     visualisation=True
 )

@@ -1,50 +1,55 @@
-# Temporal Network Analysis
+# temporal_networks
 
-Python package for analyzing dynamic networks that change over time.
+[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
+[![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
 
-## Features
+A Python package for analyzing temporal network evolution with **automatic gap detection**.
 
-- **network_properties**: Compute structural metrics (density, diameter, clustering)
-- **calculate_centralities**: Calculate node importance (betweenness, PageRank, etc.)
-- **communities_measures**: Detect communities using multiple algorithms
-- **plot_community_evolution**: Animate how communities change over time
-- **vertex_properties**: Track individual node metrics
+`temporal_networks` is designed for understanding how network structure and properties change over time. Unlike general-purpose libraries, it handles the temporal dimension natively, providing automatic detection and visualization of temporal gaps (missing data periods)—a critical feature for real-world datasets with seasonal closures, maintenance windows, or crisis-driven interruptions.
+
+## Key Features
+
+- **Automatic Gap Detection**: Seamlessly handles irregular time series and seasonal data.
+- **Network Properties**: Track evolution of density, diameter, clustering, and connectivity.
+- **Centrality Trajectories**: Compute 13 different centrality measures across time steps.
+- **Community Evolution**: Track structural changes using 7 different algorithms (Leiden, Louvain, Walktrap, etc.).
+- **Edge Dynamics**: Analyze formation and dissolution patterns between consecutive time points.
+- **Vertex Tracking**: Follow individual node importance and local structure over time.
+- **Gap-Aware Visualization**: Automatic generation of plots that correctly represent temporal discontinuities.
 
 ## Installation
 
-Clone and install:
 ```bash
-git clone https://github.com/YOUR_USERNAME/temporal-network-analysis.git
-cd temporal-network-analysis
+git clone https://github.com/YOUR_USERNAME/temporal_networks.git
+cd temporal_networks
 pip install -e .
 ```
 
 ## Quick Start
+
 ```python
-from temporal_networks import network_properties
 import igraph as ig
+from temporal_networks import network_properties
 
-# Load your graphs
-graphs = [...]  # list of igraph Graph objects
+# Load or create your temporal graphs
+graphs = [ig.Graph.Barabasi(n=50, m=2) for _ in range(12)]
+labels = ["2024-01", "2024-02", "2024-03", ..., "2024-12"]
 
-# Compute properties
-props = network_properties(graphs, visualisation=True)
-print(props)
+# Analyze properties with automatic gap detection
+props = network_properties(graphs, graph_labels=labels)
 ```
 
-## Case Studies
+## Use Cases
 
-- **Helsinki City Bikes**: Dynamic bike-sharing network (2016-2020)
-- **Air Transportation**: Global flight networks during COVID-19 (2019-2022)
+- **Epidemiology**: Contact networks with lockdown/reopening cycles.
+- **Transportation**: Flight or bike-sharing networks with seasonal operation.
+- **Infrastructure**: Systems with scheduled maintenance windows.
+- **Social Science**: Dynamic interaction networks around major events.
 
-See `examples/` for reproducible scripts.
+## Credits
 
-## Dependencies
-
-- Python 3.8+
-- igraph, networkx, pandas, numpy
-- matplotlib, seaborn, plotly
+Developed by **Adriana-Stefania Ciupeanu** and **Julien Arino** at the University of Manitoba.
 
 ## License
 
-GPL-3.0 license 
+This project is licensed under the GPL-3.0 License.
