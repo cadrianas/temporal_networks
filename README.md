@@ -20,7 +20,7 @@ A Python package for analyzing temporal network evolution with **automatic gap d
 ## Installation
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/temporal_networks.git
+git clone [https://github.com/YOUR_USERNAME/temporal_networks.git](https://github.com/cadrianas/NetworkPackage)
 cd temporal_networks
 pip install -e .
 ```
