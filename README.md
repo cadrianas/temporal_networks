@@ -84,7 +84,7 @@ python tests/run_tests.py
 
 If you use this package in your research, please cite:
 
-Ciupeanu, A.-S., & Arino, J. (2026). temporal_networks: A Python package for analyzing temporal network evolution with automatic gap detection. *Journal of Open Source Software* (in prep).
+Ciupeanu, A.-S., & Arino, J. (2026). temporal_networks: A Python package for analyzing temporal network evolution with automatic gap detection.
 
 ## Credits
 
