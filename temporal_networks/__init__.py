@@ -8,7 +8,7 @@ from .communities_measures import communities_measures
 from .vertex_properties import vertex_properties
 from .edge_formation_dissolution import edge_formation, edge_dissolution
 from .plot_community_evolution import plot_community_evolution
-from .temporal_gap_analysis import detect_temporal_gaps
+from ._gap_utilities import detect_temporal_gaps
 
 __version__ = "0.1.0"
 __author__ = "Adriana-Stefania Ciupeanu, Julien Arino"

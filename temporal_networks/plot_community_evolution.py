@@ -9,7 +9,7 @@ import igraph as ig
 import plotly.graph_objs as go
 from plotly.offline import plot
 import random
-from typing import List, Optional
+from typing import List
 
 
 def plot_community_evolution(graphs: List,
@@ -25,7 +25,7 @@ def plot_community_evolution(graphs: List,
     
     Parameters
     ----------
-    graphs : list
+    graphs : list of igraph.Graph
         List of igraph.Graph objects to analyze. All graphs should have
         consistent node labels.
     community_algorithm : str

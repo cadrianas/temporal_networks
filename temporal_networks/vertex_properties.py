@@ -15,7 +15,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import numpy as np
 import os
-from typing import List, Optional, Dict
+from typing import List, Optional
 from ._gap_utilities import (
     detect_temporal_gaps,
     print_gap_report,
@@ -46,7 +46,7 @@ def vertex_properties(graphs: List,
 
     Parameters
     ----------
-    graphs : list
+    graphs : list of igraph.Graph
         List of igraph.Graph objects to analyze
     node_name : str
         Name/label of the node of interest (must match node attribute in graphs)

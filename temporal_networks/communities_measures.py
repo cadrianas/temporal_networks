@@ -45,7 +45,7 @@ def communities_measures(graphs: List,
 
     Parameters
     ----------
-    graphs : list
+    graphs : list of igraph.Graph
         List of igraph.Graph objects to analyze
     graph_labels : list of str, optional
         Labels for each graph (e.g., ["2019-01", "2019-02", ...])

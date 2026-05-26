@@ -46,7 +46,7 @@ def calculate_centralities(graphs: List,
 
     Parameters
     ----------
-    graphs : list
+    graphs : list of igraph.Graph
         List of igraph.Graph objects to analyze
     graph_labels : list of str, optional
         Labels for each graph (e.g., ["2019-01", "2019-02", ...])
@@ -76,7 +76,7 @@ def calculate_centralities(graphs: List,
     >>>
     >>> # Continuous data (no gaps)
     >>> graphs = [ig.Graph.Barabasi(n=50, m=2) for _ in range(12)]
-    >>> labels = ["2024-01", "2024-02", ..., "2024-12"]
+    >>> labels = [f"2024-{i+1:02d}" for i in range(12)]
     >>> centralities = calculate_centralities(graphs, graph_labels=labels)
     >>>
     >>> # Gapped data (seasonal operation)

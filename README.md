@@ -2,6 +2,8 @@
 
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 [![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
+[![CI](https://github.com/cadrianas/NetworkPackage/actions/workflows/ci.yml/badge.svg)](https://github.com/cadrianas/NetworkPackage/actions)
+[![Documentation Status](https://readthedocs.org/projects/temporal-networks/badge/?version=latest)](https://temporal-networks.readthedocs.io/en/latest/?badge=latest)
 
 A Python package for analyzing temporal network evolution with **automatic gap detection**.
 
@@ -21,7 +23,7 @@ A Python package for analyzing temporal network evolution with **automatic gap d
 
 ```bash
 git clone https://github.com/cadrianas/NetworkPackage
-cd temporal_networks
+cd NetworkPackage
 pip install -e .
 ```
 
@@ -31,20 +33,58 @@ pip install -e .
 import igraph as ig
 from temporal_networks import network_properties
 
-# Load or create your temporal graphs
+# Load or create your temporal graphs (12 months of data)
 graphs = [ig.Graph.Barabasi(n=50, m=2) for _ in range(12)]
-labels = ["2024-01", "2024-02", "2024-03", ..., "2024-12"]
+# Create labels for each month
+labels = [f"2024-{i+1:02d}" for i in range(12)]
 
 # Analyze properties with automatic gap detection
-props = network_properties(graphs, graph_labels=labels)
+# Results are returned as a pandas DataFrame and plots are saved to 'plots/'
+props = network_properties(graphs, graph_labels=labels, save_path="plots/")
 ```
 
-## Use Cases
+## API Overview
 
-- **Epidemiology**: Contact networks with lockdown/reopening cycles.
-- **Transportation**: Flight or bike-sharing networks with seasonal operation.
-- **Infrastructure**: Systems with scheduled maintenance windows.
-- **Social Science**: Dynamic interaction networks around major events.
+The package provides several high-level functions for temporal analysis:
+
+- `network_properties()`: Compute structural metrics for each network snapshot.
+- `calculate_centralities()`: Track 13 different centrality measures over time.
+- `communities_measures()`: Apply 7 community detection algorithms and track evolution.
+- `vertex_properties()`: Track a specific node's properties through the temporal sequence.
+- `edge_formation()` / `edge_dissolution()`: Analyze route changes between consecutive steps.
+- `detect_temporal_gaps()`: Standalone utility for analyzing temporal discontinuities.
+
+## Reproducibility
+
+To reproduce the synthetic results and gap-aware visualizations demonstrated in our research:
+
+```bash
+python examples/example_1_synthetic.py
+```
+This script generates both continuous and gapped datasets, performs a full suite of analyses, and saves comparative visualizations to the `plots/` directory.
+
+## Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request. For major changes, please open an issue first to discuss what you would like to change.
+
+1. Fork the Project
+2. Create your Feature Branch (`git checkout -b feature/AmazingFeature`)
+3. Commit your Changes (`git commit -m 'Add some AmazingFeature'`)
+4. Push to the Branch (`git push origin feature/AmazingFeature`)
+5. Open a Pull Request
+
+### Testing locally
+
+Run the full test suite to ensure no regressions:
+```bash
+python tests/run_tests.py
+```
+
+## Citation
+
+If you use this package in your research, please cite:
+
+Ciupeanu, A.-S., & Arino, J. (2026). temporal_networks: A Python package for analyzing temporal network evolution with automatic gap detection. *Journal of Open Source Software* (in prep).
 
 ## Credits
 
@@ -52,4 +92,4 @@ Developed by **Adriana-Stefania Ciupeanu** and **Julien Arino** at the Universit
 
 ## License
 
-This project is licensed under the GPL-3.0 License.
+This project is licensed under the GPL-3.0 License - see the [LICENSE](LICENSE) file for details.

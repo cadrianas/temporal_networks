@@ -1,15 +1,12 @@
 """
 Temporal Gap Utilities Module
 
-This is a shared utility module for gap detection and plotting across the
-temporal_networks package. Can be copied directly into the package as:
-  temporal_networks/_gap_utilities.py
-
-All plotting functions should import from this module for consistent gap handling.
+This module provides shared logic for temporal gap detection, datetime parsing,
+and gap-aware plotting across the temporal_networks package.
 """
 
 import numpy as np
-import matplotlib.pyplot as plt
+import pandas as pd
 from datetime import datetime
 from typing import List, Tuple, Optional, Dict
 
@@ -38,6 +35,14 @@ def parse_flexible_datetime(label: str) -> Optional[datetime]:
     -------
     datetime or None
         Parsed datetime object, or None if parsing fails
+
+    Examples
+    --------
+    >>> parse_flexible_datetime("2024-03")
+    datetime.datetime(2024, 3, 1, 0, 0)
+
+    >>> parse_flexible_datetime("2024-03-15")
+    datetime.datetime(2024, 3, 15, 0, 0)
     """
     # Try YYYY-MM first (most common)
     try:
@@ -54,8 +59,9 @@ def parse_flexible_datetime(label: str) -> Optional[datetime]:
     # Try YYYY-W## (ISO week format)
     try:
         year, week = label.strip().split('-W')
+        # Convert week number to date (using first day of week)
         return datetime.strptime(f"{year}-W{int(week)}-1", "%Y-W%W-%w")
-    except (ValueError, AttributeError):
+    except (ValueError, AttributeError, IndexError):
         pass
 
     # Try YYYY-Q# (quarter format)
@@ -85,7 +91,7 @@ def calculate_time_difference(date1: datetime, date2: datetime,
     date1 : datetime
         First date
     date2 : datetime
-        Second date
+        Second date (should be after date1)
     unit : str, optional
         Time unit: "days", "weeks", "months", "years" (default: "months")
 
@@ -93,18 +99,25 @@ def calculate_time_difference(date1: datetime, date2: datetime,
     -------
     float
         Time difference in specified units
+
+    Examples
+    --------
+    >>> d1 = datetime(2024, 3, 1)
+    >>> d2 = datetime(2024, 5, 1)
+    >>> calculate_time_difference(d1, d2, unit="months")
+    2.0
     """
     if date1 > date2:
         date1, date2 = date2, date1
 
     if unit == "days":
-        return (date2 - date1).days
+        return float((date2 - date1).days)
     elif unit == "weeks":
-        return (date2 - date1).days / 7
+        return (date2 - date1).days / 7.0
     elif unit == "months":
-        return (date2.year - date1.year) * 12 + (date2.month - date1.month)
+        return float((date2.year - date1.year) * 12 + (date2.month - date1.month))
     elif unit == "years":
-        return (date2.year - date1.year) + (date2.month - date1.month) / 12
+        return (date2.year - date1.year) + (date2.month - date1.month) / 12.0
     else:
         raise ValueError(f"Unknown unit: {unit}. Use 'days', 'weeks', 'months', or 'years'")
 
@@ -115,47 +128,64 @@ def calculate_time_difference(date1: datetime, date2: datetime,
 
 def detect_temporal_gaps(graph_labels: List[str],
                          gap_threshold: int = 1,
-                         unit: str = "months") -> Dict:
+                         unit: str = "months",
+                         verbose: bool = False) -> Dict:
     """
-    Detect temporal gaps in a list of labels.
+    Detect temporal gaps in a list of labels with detailed reporting.
 
-    A gap occurs when consecutive labels are more than `gap_threshold` apart.
-    For example, with monthly data and threshold=1, a gap of 2+ months is detected.
+    A gap occurs when consecutive labels are more than `gap_threshold` apart
+    (in specified units). This is useful for identifying seasonal closures,
+    maintenance windows, data collection gaps, etc.
 
     Parameters
     ----------
     graph_labels : list of str
         Temporal labels (e.g., ["2024-03", "2024-04", "2024-11"])
     gap_threshold : int, optional
-        Threshold for gap detection (default: 1)
+        Threshold for detecting gaps (default: 1)
+        - For monthly data: threshold=1 means 2+ months apart is a gap
+        - For daily data: threshold=7 means 8+ days apart is a gap
     unit : str, optional
-        Time unit: "days", "weeks", "months", "years" (default: "months")
+        Time unit for calculation: "days", "weeks", "months", "years"
+        (default: "months")
+    verbose : bool, optional
+        If True, print detailed gap report (default: False)
 
     Returns
     -------
     dict
-        Dictionary with:
+        Dictionary with keys:
         - "has_gaps" (bool): Whether gaps were detected
-        - "num_gaps" (int): Number of gaps
-        - "gaps" (list): Details about each gap
-        - "segments" (list): Continuous time segments as (start, end) tuples
+        - "num_gaps" (int): Number of gaps found
+        - "gaps" (list): List of gap information dicts with:
+          - "start_idx" (int): Index of last point before gap
+          - "end_idx" (int): Index of first point after gap
+          - "start_label" (str): Label before gap
+          - "end_label" (str): Label after gap
+          - "gap_size" (float): Size of gap in specified units
+        - "segments" (list): List of (start_idx, end_idx) tuples for continuous segments
+        - "report" (str): Human-readable gap report
 
     Examples
     --------
     >>> labels = ["2024-03", "2024-04", "2024-05", "2024-11", "2024-12"]
-    >>> result = detect_temporal_gaps(labels)
+    >>> result = detect_temporal_gaps(labels, verbose=False)
     >>> result["has_gaps"]
     True
     >>> result["num_gaps"]
     1
+    >>> result["gaps"][0]["gap_size"]
+    6.0
     """
 
     if len(graph_labels) < 2:
+        report = "No gaps: Data is continuous or contains fewer than 2 points."
         return {
             "has_gaps": False,
             "num_gaps": 0,
             "gaps": [],
             "segments": [(0, len(graph_labels))],
+            "report": report
         }
 
     # Parse all labels
@@ -163,11 +193,13 @@ def detect_temporal_gaps(graph_labels: List[str],
 
     # Check if all parsing was successful
     if any(d is None for d in parsed_dates):
+        report = "Warning: Could not parse all labels. Gap detection disabled."
         return {
             "has_gaps": False,
             "num_gaps": 0,
             "gaps": [],
             "segments": [(0, len(graph_labels))],
+            "report": report
         }
 
     # Find gaps
@@ -197,16 +229,85 @@ def detect_temporal_gaps(graph_labels: List[str],
     # Add final segment
     segments.append((segment_start, len(graph_labels)))
 
-    return {
+    # Generate report
+    report = _generate_gap_report_text(graph_labels, gaps, unit=unit)
+
+    result = {
         "has_gaps": len(gaps) > 0,
         "num_gaps": len(gaps),
         "gaps": gaps,
         "segments": segments,
+        "report": report
     }
+
+    if verbose:
+        print(report)
+
+    return result
+
+
+def _generate_gap_report_text(graph_labels: List[str], gaps: List[Dict],
+                              unit: str = "months") -> str:
+    """
+    Generate human-readable gap report string.
+
+    Parameters
+    ----------
+    graph_labels : list of str
+        Original temporal labels
+    gaps : list of dict
+        Detected gaps
+    unit : str, optional
+        Time unit for reporting (default: "months")
+
+    Returns
+    -------
+    str
+        Human-readable report
+    """
+    has_gaps = len(gaps) > 0
+    lines = [
+        "=" * 80,
+        "TEMPORAL DATA STRUCTURE ANALYSIS",
+        "=" * 80,
+        "\nDataset Overview:",
+        f"  Number of observations: {len(graph_labels)}",
+        f"  Time unit: {unit}",
+        f"  Date range: {graph_labels[0]} to {graph_labels[-1]}"
+    ]
+
+    if not has_gaps:
+        lines.append("\n✓ Data is CONTINUOUS (no gaps detected)")
+        lines.append("  All observations are sequential with no missing periods.")
+    else:
+        lines.append(f"\n⚠ Data has GAPS: {len(gaps)} gap(s) detected\n")
+
+        for i, gap in enumerate(gaps, 1):
+            lines.append(f"  Gap #{i}:")
+            lines.append(f"    From: {gap['start_label']} (index {gap['start_idx']})")
+            lines.append(f"    To:   {gap['end_label']} (index {gap['end_idx']})")
+            lines.append(f"    Size: {gap['gap_size']:.1f} {unit}\n")
+
+    lines.append("Impact on Temporal Visualization:")
+    if has_gaps:
+        lines.append("  ✓ Plots show SEPARATE LINE SEGMENTS for each continuous period")
+        lines.append("  ✓ No lines are drawn across gaps")
+        lines.append("  ✓ Visual breaks indicate where data is missing")
+        lines.append("\nPossible causes for gaps:")
+        lines.append("  - Seasonal operation (system open only part of year)")
+        lines.append("  - System maintenance or downtime")
+        lines.append("  - Data collection interruptions")
+        lines.append("  - Multi-phase study (Phase 1, break, Phase 2)")
+    else:
+        lines.append("  ✓ Plots show CONTINUOUS LINES connecting all points")
+        lines.append("  ✓ All time periods are represented sequentially")
+
+    lines.append("\n" + "=" * 80)
+    return "\n".join(lines)
 
 
 # ============================================================================
-# REPORTING
+# REPORTING & PUBLIC UTILITIES
 # ============================================================================
 
 def print_gap_report(graph_labels: List[str], gap_info: Dict,
@@ -223,44 +324,45 @@ def print_gap_report(graph_labels: List[str], gap_info: Dict,
     unit : str, optional
         Time unit for reporting (default: "months")
     """
-
-    print("\n" + "=" * 80)
-    print("TEMPORAL DATA STRUCTURE ANALYSIS")
-    print("=" * 80)
-
-    print(f"\nDataset Overview:")
-    print(f"  Number of observations: {len(graph_labels)}")
-    print(f"  Time unit: {unit}")
-    print(f"  Date range: {graph_labels[0]} to {graph_labels[-1]}")
-
-    if not gap_info["has_gaps"]:
-        print(f"\n✓ Data is CONTINUOUS (no gaps detected)")
-        print(f"  All observations are sequential with no missing periods.")
+    if "report" in gap_info:
+        print(gap_info["report"])
     else:
-        print(f"\n⚠ Data has GAPS: {gap_info['num_gaps']} gap(s) detected\n")
+        # Fallback if gap_info doesn't have the report key
+        print(_generate_gap_report_text(graph_labels, gap_info.get("gaps", []), unit))
 
-        for i, gap in enumerate(gap_info["gaps"], 1):
-            print(f"  Gap #{i}:")
-            print(f"    From: {gap['start_label']} (index {gap['start_idx']})")
-            print(f"    To:   {gap['end_label']} (index {gap['end_idx']})")
-            print(f"    Size: {gap['gap_size']:.1f} {unit}")
-            print()
 
-    print("Impact on Temporal Visualization:")
-    if gap_info["has_gaps"]:
-        print("  ✓ Plots show SEPARATE LINE SEGMENTS for each continuous period")
-        print("  ✓ No lines are drawn across gaps")
-        print("  ✓ Visual breaks indicate where data is missing")
-        print("\nPossible causes for gaps:")
-        print("  - Seasonal operation (system open only part of year)")
-        print("  - System maintenance or downtime")
-        print("  - Data collection interruptions")
-        print("  - Multi-phase study (Phase 1, break, Phase 2)")
-    else:
-        print("  ✓ Plots show CONTINUOUS LINES connecting all points")
-        print("  ✓ All time periods are represented sequentially")
+def create_gap_dataframe(graph_labels: List[str], gap_info: Dict) -> pd.DataFrame:
+    """
+    Create a DataFrame summarizing detected gaps.
 
-    print("\n" + "=" * 80 + "\n")
+    Parameters
+    ----------
+    graph_labels : list of str
+        Original temporal labels
+    gap_info : dict
+        Output from detect_temporal_gaps()
+
+    Returns
+    -------
+    pd.DataFrame
+        DataFrame with one row per gap, including:
+        - start_label, end_label, gap_size
+    """
+    if not gap_info.get("gaps"):
+        return pd.DataFrame(columns=["gap_number", "start_label", "end_label", "gap_size"])
+
+    gap_rows = []
+    for i, gap in enumerate(gap_info["gaps"], 1):
+        gap_rows.append({
+            "gap_number": i,
+            "start_label": gap["start_label"],
+            "end_label": gap["end_label"],
+            "gap_size": gap["gap_size"],
+            "start_idx": gap["start_idx"],
+            "end_idx": gap["end_idx"],
+        })
+
+    return pd.DataFrame(gap_rows)
 
 
 # ============================================================================
@@ -271,8 +373,17 @@ def format_large_numbers(x, pos):
     """
     Format large numbers with appropriate units (k, M, B).
 
-    Use with matplotlib's FuncFormatter:
-        ax.yaxis.set_major_formatter(plt.FuncFormatter(format_large_numbers))
+    Parameters
+    ----------
+    x : float
+        The number to format
+    pos : int
+        The position
+
+    Returns
+    -------
+    str
+        Formatted number string
     """
     if x >= 1_000_000_000:
         return f'{x / 1_000_000_000:.1f}B'
@@ -321,7 +432,7 @@ def plot_with_gap_handling(ax, graph_labels: List[str], y_values, gap_segments: 
     Examples
     --------
     >>> import matplotlib.pyplot as plt
-    >>> from _gap_utilities import plot_with_gap_handling, detect_temporal_gaps
+    >>> from temporal_networks._gap_utilities import plot_with_gap_handling, detect_temporal_gaps
     >>>
     >>> labels = ["2024-03", "2024-04", "2024-05", "2024-11", "2024-12"]
     >>> y_values = [0.5, 0.6, 0.7, 0.8, 0.9]
@@ -330,9 +441,7 @@ def plot_with_gap_handling(ax, graph_labels: List[str], y_values, gap_segments: 
     >>> fig, ax = plt.subplots()
     >>> plot_with_gap_handling(ax, labels, y_values, gap_info["segments"])
     >>> ax.set_title("Example with Gap")
-    >>> plt.show()
     """
-
     for i, (segment_start, segment_end) in enumerate(gap_segments):
         x_indices = np.arange(segment_start, segment_end)
         y_segment = [y_values[idx] for idx in x_indices]
@@ -347,49 +456,3 @@ def plot_with_gap_handling(ax, graph_labels: List[str], y_values, gap_segments: 
     # Set x-ticks and labels to show all data points
     ax.set_xticks(range(len(graph_labels)))
     ax.set_xticklabels(graph_labels, rotation=45, ha='right', fontsize=10)
-
-
-# ============================================================================
-# USAGE SUMMARY
-# ============================================================================
-
-"""
-How to use these utilities in your plotting functions:
-
-1. At the top of your module:
-
-   from ._gap_utilities import (
-       detect_temporal_gaps,
-       print_gap_report,
-       plot_with_gap_handling,
-       format_large_numbers,
-   )
-
-2. In your function (early):
-
-   def my_plotting_function(graphs, graph_labels, ..., report_gaps=True):
-       # ... validation ...
-
-       # Detect gaps
-       gap_info = detect_temporal_gaps(graph_labels)
-
-       # Report to user
-       if report_gaps:
-           print_gap_report(graph_labels, gap_info)
-
-       # ... compute metrics ...
-
-       # Create plot
-       fig, ax = plt.subplots(figsize=(14, 7))
-
-       # Use gap-aware plotting instead of ax.plot()
-       plot_with_gap_handling(ax, graph_labels, y_values,
-                             gap_info["segments"],
-                             marker='o', linestyle='-', color='#1f77b4')
-
-       ax.set_ylabel("Your Metric")
-       ax.yaxis.set_major_formatter(plt.FuncFormatter(format_large_numbers))
-       # ... rest of formatting ...
-
-That's it! Gaps will be handled automatically.
-"""
