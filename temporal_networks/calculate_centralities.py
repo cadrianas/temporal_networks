@@ -15,174 +15,13 @@ KEY FEATURES:
 
 import pandas as pd
 import matplotlib.pyplot as plt
-import numpy as np
 import os
-from typing import List, Optional, Dict, Tuple
-from datetime import datetime
-
-
-# ============================================================================
-# GAP DETECTION UTILITIES (same as network_properties)
-# ============================================================================
-
-def parse_flexible_datetime(label: str) -> Optional[datetime]:
-    """Parse datetime label in multiple formats."""
-    try:
-        return datetime.strptime(label.strip(), "%Y-%m")
-    except ValueError:
-        pass
-
-    try:
-        return datetime.strptime(label.strip(), "%Y-%m-%d")
-    except ValueError:
-        pass
-
-    try:
-        year, week = label.strip().split('-W')
-        return datetime.strptime(f"{year}-W{int(week)}-1", "%Y-W%W-%w")
-    except (ValueError, AttributeError):
-        pass
-
-    try:
-        year, quarter = label.strip().split('-Q')
-        month = (int(quarter) - 1) * 3 + 1
-        return datetime(int(year), month, 1)
-    except (ValueError, IndexError):
-        pass
-
-    try:
-        return datetime.strptime(label.strip(), "%Y")
-    except ValueError:
-        pass
-
-    return None
-
-
-def calculate_time_difference(date1: datetime, date2: datetime, unit: str = "months") -> float:
-    """Calculate time difference between two dates."""
-    if date1 > date2:
-        date1, date2 = date2, date1
-
-    if unit == "days":
-        return (date2 - date1).days
-    elif unit == "weeks":
-        return (date2 - date1).days / 7
-    elif unit == "months":
-        return (date2.year - date1.year) * 12 + (date2.month - date1.month)
-    elif unit == "years":
-        return (date2.year - date1.year) + (date2.month - date1.month) / 12
-    else:
-        raise ValueError(f"Unknown unit: {unit}")
-
-
-def detect_temporal_gaps(graph_labels: List[str],
-                        gap_threshold: int = 1,
-                        unit: str = "months") -> Dict:
-    """Detect temporal gaps and return information."""
-
-    if len(graph_labels) < 2:
-        return {
-            "has_gaps": False,
-            "num_gaps": 0,
-            "gaps": [],
-            "segments": [(0, len(graph_labels))],
-        }
-
-    parsed_dates = [parse_flexible_datetime(label) for label in graph_labels]
-
-    if any(d is None for d in parsed_dates):
-        return {
-            "has_gaps": False,
-            "num_gaps": 0,
-            "gaps": [],
-            "segments": [(0, len(graph_labels))],
-        }
-
-    gaps = []
-    segments = []
-    segment_start = 0
-
-    for i in range(1, len(parsed_dates)):
-        date_prev = parsed_dates[i - 1]
-        date_curr = parsed_dates[i]
-
-        time_diff = calculate_time_difference(date_prev, date_curr, unit=unit)
-
-        if time_diff > gap_threshold:
-            gaps.append({
-                "start_idx": i - 1,
-                "end_idx": i,
-                "start_label": graph_labels[i - 1],
-                "end_label": graph_labels[i],
-                "gap_size": time_diff,
-            })
-
-            segments.append((segment_start, i))
-            segment_start = i
-
-    segments.append((segment_start, len(graph_labels)))
-
-    return {
-        "has_gaps": len(gaps) > 0,
-        "num_gaps": len(gaps),
-        "gaps": gaps,
-        "segments": segments,
-    }
-
-
-def print_gap_report(graph_labels: List[str], gap_info: Dict, unit: str = "months") -> None:
-    """Print human-readable gap report."""
-
-    print("\n" + "=" * 80)
-    print("TEMPORAL DATA STRUCTURE ANALYSIS")
-    print("=" * 80)
-
-    print(f"\nDataset Overview:")
-    print(f"  Number of observations: {len(graph_labels)}")
-    print(f"  Time unit: {unit}")
-    print(f"  Date range: {graph_labels[0]} to {graph_labels[-1]}")
-
-    if not gap_info["has_gaps"]:
-        print(f"\n✓ Data is CONTINUOUS (no gaps detected)")
-    else:
-        print(f"\n⚠ Data has GAPS: {gap_info['num_gaps']} gap(s) detected\n")
-
-        for i, gap in enumerate(gap_info["gaps"], 1):
-            print(f"  Gap #{i}:")
-            print(f"    From: {gap['start_label']} (index {gap['start_idx']})")
-            print(f"    To:   {gap['end_label']} (index {gap['end_idx']})")
-            print(f"    Size: {gap['gap_size']:.1f} {unit}")
-            print()
-
-    print("Impact on Temporal Visualization:")
-    if gap_info["has_gaps"]:
-        print("  ✓ Centrality plots show SEPARATE LINE SEGMENTS for each continuous period")
-        print("  ✓ No lines are drawn across gaps")
-        print("  ✓ Visual breaks indicate where data is missing")
-    else:
-        print("  ✓ Centrality plots show CONTINUOUS LINES connecting all points")
-
-    print("\n" + "=" * 80 + "\n")
-
-
-# ============================================================================
-# PLOTTING UTILITIES
-# ============================================================================
-
-def plot_with_gap_handling(ax, graph_labels: List[str], y_values, gap_segments: List[Tuple],
-                          marker='o', linestyle='-', markersize=8,
-                          linewidth=2, color='#1f77b4'):
-    """Plot data with gap handling."""
-
-    for segment_start, segment_end in gap_segments:
-        x_indices = np.arange(segment_start, segment_end)
-        y_segment = [y_values[i] for i in x_indices]
-
-        ax.plot(x_indices, y_segment, marker=marker, linestyle=linestyle,
-               markersize=markersize, linewidth=linewidth, color=color)
-
-    ax.set_xticks(range(len(graph_labels)))
-    ax.set_xticklabels(graph_labels, rotation=45, ha='right', fontsize=10)
+from typing import List, Optional, Dict
+from ._gap_utilities import (
+    detect_temporal_gaps,
+    print_gap_report,
+    plot_with_gap_handling
+)
 
 
 # ============================================================================
@@ -304,52 +143,52 @@ def calculate_centralities(graphs: List,
         # Compute centrality measures
         try:
             degree_centrality = graph.degree()
-        except:
+        except Exception:
             degree_centrality = [None] * graph.vcount()
 
         try:
             closeness_centrality = graph.closeness()
-        except:
+        except Exception:
             closeness_centrality = [None] * graph.vcount()
 
         try:
             betweenness_centrality = graph.betweenness(directed=graph.is_directed())
-        except:
+        except Exception:
             betweenness_centrality = [None] * graph.vcount()
 
         try:
             eigenvector_centrality = graph.eigenvector_centrality()
-        except:
+        except Exception:
             eigenvector_centrality = [None] * graph.vcount()
 
         try:
             pagerank = graph.pagerank()
-        except:
+        except Exception:
             pagerank = [None] * graph.vcount()
 
         try:
             harmonic_centrality = graph.harmonic_centrality()
-        except:
+        except Exception:
             harmonic_centrality = [None] * graph.vcount()
 
         try:
             eccentricity = graph.eccentricity()
-        except:
+        except Exception:
             eccentricity = [None] * graph.vcount()
 
         try:
             clustering_coefficient = graph.transitivity_local_undirected()
-        except:
+        except Exception:
             clustering_coefficient = [None] * graph.vcount()
 
         try:
             authority_score = graph.authority_score()
-        except:
+        except Exception:
             authority_score = [None] * graph.vcount()
 
         try:
             hub_score = graph.hub_score()
-        except:
+        except Exception:
             hub_score = [None] * graph.vcount()
 
         # For each node, store all centrality measures
@@ -415,6 +254,8 @@ def _visualize_centrality_evolution(centralities_df: pd.DataFrame,
         try:
             # Get average centrality for each graph
             avg_by_graph = centralities_df.groupby("Graph")[measure].mean().reset_index()
+            # Ensure correct order based on graph_labels
+            avg_by_graph = avg_by_graph.set_index("Graph").reindex(graph_labels).reset_index()
             avg_values = avg_by_graph[measure].values
 
             # Create plot

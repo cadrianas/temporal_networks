@@ -15,172 +15,12 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import numpy as np
 import os
-from datetime import datetime
-from typing import List, Optional, Dict, Tuple
-
-
-# ============================================================================
-# GAP DETECTION UTILITIES
-# ============================================================================
-
-def parse_flexible_datetime(label: str) -> Optional[datetime]:
-    """Parse datetime label in multiple formats."""
-    try:
-        return datetime.strptime(label.strip(), "%Y-%m")
-    except ValueError:
-        pass
-
-    try:
-        return datetime.strptime(label.strip(), "%Y-%m-%d")
-    except ValueError:
-        pass
-
-    try:
-        year, week = label.strip().split('-W')
-        return datetime.strptime(f"{year}-W{int(week)}-1", "%Y-W%W-%w")
-    except (ValueError, AttributeError):
-        pass
-
-    try:
-        year, quarter = label.strip().split('-Q')
-        month = (int(quarter) - 1) * 3 + 1
-        return datetime(int(year), month, 1)
-    except (ValueError, IndexError):
-        pass
-
-    try:
-        return datetime.strptime(label.strip(), "%Y")
-    except ValueError:
-        pass
-
-    return None
-
-
-def calculate_time_difference(date1: datetime, date2: datetime, unit: str = "months") -> float:
-    """Calculate time difference between two dates."""
-    if date1 > date2:
-        date1, date2 = date2, date1
-
-    if unit == "days":
-        return (date2 - date1).days
-    elif unit == "weeks":
-        return (date2 - date1).days / 7
-    elif unit == "months":
-        return (date2.year - date1.year) * 12 + (date2.month - date1.month)
-    elif unit == "years":
-        return (date2.year - date1.year) + (date2.month - date1.month) / 12
-    else:
-        raise ValueError(f"Unknown unit: {unit}")
-
-
-def detect_temporal_gaps(graph_labels: List[str],
-                        gap_threshold: int = 1,
-                        unit: str = "months") -> Dict:
-    """Detect temporal gaps and return information."""
-
-    if len(graph_labels) < 2:
-        return {
-            "has_gaps": False,
-            "num_gaps": 0,
-            "gaps": [],
-            "segments": [(0, len(graph_labels))],
-        }
-
-    parsed_dates = [parse_flexible_datetime(label) for label in graph_labels]
-
-    if any(d is None for d in parsed_dates):
-        return {
-            "has_gaps": False,
-            "num_gaps": 0,
-            "gaps": [],
-            "segments": [(0, len(graph_labels))],
-        }
-
-    gaps = []
-    segments = []
-    segment_start = 0
-
-    for i in range(1, len(parsed_dates)):
-        date_prev = parsed_dates[i - 1]
-        date_curr = parsed_dates[i]
-
-        time_diff = calculate_time_difference(date_prev, date_curr, unit=unit)
-
-        if time_diff > gap_threshold:
-            gaps.append({
-                "start_idx": i - 1,
-                "end_idx": i,
-                "start_label": graph_labels[i - 1],
-                "end_label": graph_labels[i],
-                "gap_size": time_diff,
-            })
-
-            segments.append((segment_start, i))
-            segment_start = i
-
-    segments.append((segment_start, len(graph_labels)))
-
-    return {
-        "has_gaps": len(gaps) > 0,
-        "num_gaps": len(gaps),
-        "gaps": gaps,
-        "segments": segments,
-    }
-
-
-def print_gap_report(graph_labels: List[str], gap_info: Dict, unit: str = "months") -> None:
-    """Print human-readable gap report."""
-
-    print("\n" + "=" * 80)
-    print("TEMPORAL DATA STRUCTURE ANALYSIS")
-    print("=" * 80)
-
-    print(f"\nDataset Overview:")
-    print(f"  Number of observations: {len(graph_labels)}")
-    print(f"  Time unit: {unit}")
-    print(f"  Date range: {graph_labels[0]} to {graph_labels[-1]}")
-
-    if not gap_info["has_gaps"]:
-        print(f"\n✓ Data is CONTINUOUS (no gaps detected)")
-    else:
-        print(f"\n⚠ Data has GAPS: {gap_info['num_gaps']} gap(s) detected\n")
-
-        for i, gap in enumerate(gap_info["gaps"], 1):
-            print(f"  Gap #{i}:")
-            print(f"    From: {gap['start_label']} (index {gap['start_idx']})")
-            print(f"    To:   {gap['end_label']} (index {gap['end_idx']})")
-            print(f"    Size: {gap['gap_size']:.1f} {unit}")
-            print()
-
-    print("Impact on Temporal Visualization:")
-    if gap_info["has_gaps"]:
-        print("  ✓ Vertex property plots show SEPARATE LINE SEGMENTS for each continuous period")
-        print("  ✓ No lines are drawn across gaps")
-        print("  ✓ Visual breaks indicate where data is missing")
-    else:
-        print("  ✓ Vertex property plots show CONTINUOUS LINES connecting all points")
-
-    print("\n" + "=" * 80 + "\n")
-
-
-# ============================================================================
-# PLOTTING UTILITIES
-# ============================================================================
-
-def plot_with_gap_handling(ax, graph_labels: List[str], y_values, gap_segments: List[Tuple],
-                          marker='o', linestyle='-', markersize=10,
-                          linewidth=2, color='#1f77b4'):
-    """Plot data with gap handling."""
-
-    for segment_start, segment_end in gap_segments:
-        x_indices = np.arange(segment_start, segment_end)
-        y_segment = [y_values[i] for i in x_indices]
-
-        ax.plot(x_indices, y_segment, marker=marker, linestyle=linestyle,
-               markersize=markersize, linewidth=linewidth, color=color)
-
-    ax.set_xticks(range(len(graph_labels)))
-    ax.set_xticklabels(graph_labels, rotation=45, ha='right', fontsize=10)
+from typing import List, Optional, Dict
+from ._gap_utilities import (
+    detect_temporal_gaps,
+    print_gap_report,
+    plot_with_gap_handling
+)
 
 
 # ============================================================================
@@ -312,62 +152,62 @@ def vertex_properties(graphs: List,
         # Compute and store centrality measures
         try:
             properties["Degree_Centrality"].append(graph.degree()[node_index])
-        except:
+        except Exception:
             properties["Degree_Centrality"].append(None)
 
         try:
             properties["Closeness_Centrality"].append(graph.closeness()[node_index])
-        except:
+        except Exception:
             properties["Closeness_Centrality"].append(None)
 
         try:
             properties["Betweenness_Centrality"].append(graph.betweenness()[node_index])
-        except:
+        except Exception:
             properties["Betweenness_Centrality"].append(None)
 
         try:
             properties["Eigenvector_Centrality"].append(graph.eigenvector_centrality()[node_index])
-        except:
+        except Exception:
             properties["Eigenvector_Centrality"].append(None)
 
         try:
             properties["PageRank"].append(graph.pagerank()[node_index])
-        except:
+        except Exception:
             properties["PageRank"].append(None)
 
         try:
             properties["Harmonic_Centrality"].append(graph.harmonic_centrality()[node_index])
-        except:
+        except Exception:
             properties["Harmonic_Centrality"].append(None)
 
         try:
             properties["Eccentricity"].append(graph.eccentricity()[node_index])
-        except:
+        except Exception:
             properties["Eccentricity"].append(None)
 
         try:
             properties["Clustering_Coefficient"].append(graph.transitivity_local_undirected()[node_index])
-        except:
+        except Exception:
             properties["Clustering_Coefficient"].append(None)
 
         try:
             properties["Constraint"].append(graph.constraint()[node_index])
-        except:
+        except Exception:
             properties["Constraint"].append(None)
 
         try:
             properties["Coreness"].append(graph.coreness()[node_index])
-        except:
+        except Exception:
             properties["Coreness"].append(None)
 
         try:
             properties["Authority_Score"].append(graph.authority_score()[node_index])
-        except:
+        except Exception:
             properties["Authority_Score"].append(None)
 
         try:
             properties["Hub_Score"].append(graph.hub_score()[node_index])
-        except:
+        except Exception:
             properties["Hub_Score"].append(None)
 
     # Convert to DataFrame
@@ -407,9 +247,11 @@ def vertex_properties(graphs: List,
 
                 fig, ax = plt.subplots(figsize=(12, 6), dpi=100)
 
-                y_values = properties_df[prop].values
+                # Ensure data covers all graph_labels in correct order
+                plot_df = properties_df.set_index("Graph").reindex(graph_labels).reset_index()
+                y_values = plot_df[prop].values
 
-                # FIXED: Use gap-aware plotting
+                # Use gap-aware plotting
                 plot_with_gap_handling(ax, graph_labels, y_values,
                                       gap_info["segments"],
                                       marker='o', linestyle='-', markersize=10,
@@ -436,19 +278,22 @@ def vertex_properties(graphs: List,
         try:
             fig, ax = plt.subplots(figsize=(14, 8), dpi=100)
 
+            # Ensure data covers all graph_labels in correct order
+            combined_plot_df = properties_df.set_index("Graph").reindex(graph_labels).reset_index()
+
             # Plot all numeric properties
             for prop in properties_to_plot:
-                if prop in properties_df.columns and not properties_df[prop].isna().all():
-                    y_values = properties_df[prop].values
-                    if y_values.max() > 0:
-                        y_values = y_values / y_values.max()
+                if prop in combined_plot_df.columns and not combined_plot_df[prop].isna().all():
+                    y_values = combined_plot_df[prop].values
+                    if np.nanmax(y_values) > 0:
+                        y_values = y_values / np.nanmax(y_values)
 
-                    # FIXED: Use gap-aware plotting for combined plot
-                    for segment_start, segment_end in gap_info["segments"]:
+                    # Use gap-aware plotting for combined plot
+                    for i, (segment_start, segment_end) in enumerate(gap_info["segments"]):
                         x_indices = np.arange(segment_start, segment_end)
-                        y_segment = [y_values[i] for i in x_indices]
+                        y_segment = [y_values[idx] for idx in x_indices]
                         ax.plot(x_indices, y_segment, marker='o', linestyle='-',
-                               label=prop.replace('_', ' ') if segment_start == gap_info["segments"][0][0] else "",
+                               label=prop.replace('_', ' ') if i == 0 else "",
                                linewidth=2)
 
             ax.set_xlabel("Year - Month", fontsize=12, fontweight='bold')

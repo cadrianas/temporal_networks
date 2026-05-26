@@ -8,7 +8,8 @@ import sys
 import os
 
 # Add the refactored code to path
-sys.path.insert(0, '/home/claude')
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+sys.path.insert(0, os.path.dirname(__file__))
 
 from test_data_generator import (
     create_test_graphs_continuous,
