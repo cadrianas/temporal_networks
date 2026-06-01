@@ -20,7 +20,8 @@ from ._gap_utilities import (
     detect_temporal_gaps,
     print_gap_report,
     plot_with_gap_handling,
-    format_large_numbers
+    format_large_numbers,
+    validate_and_setup_graphs
 )
 
 
@@ -99,15 +100,8 @@ def network_properties(graphs: List,
     - Plots preserve gaps as visual discontinuities
     """
 
-    # Validate inputs
-    if not graphs:
-        raise ValueError("graphs list cannot be empty")
-
-    # Set up graph labels
-    if graph_labels is None:
-        graph_labels = [f"Graph {i+1}" for i in range(len(graphs))]
-    elif len(graph_labels) != len(graphs):
-        raise ValueError(f"graph_labels length ({len(graph_labels)}) must match graphs length ({len(graphs)})")
+    # Validate inputs and set up labels
+    graph_labels = validate_and_setup_graphs(graphs, graph_labels)
 
     # Create output directory
     if save_path:
@@ -219,49 +213,54 @@ def network_properties(graphs: List,
 
     # Generate visualizations with gap handling
     if visualisation:
-        properties_to_plot = [
-            "Number of Nodes",
-            "Number of Edges",
-            "Density",
-            "Diameter",
-            "Average Path Length",
-            "Mean Degree",
-            "Reciprocity",
-            "Transitivity",
-        ]
-
-        for prop in properties_to_plot:
-            if prop not in network_data.columns:
-                continue
-
-            try:
-                fig, ax = plt.subplots(figsize=(14, 7), dpi=100)
-
-                y_values = network_data[prop].values
-                graph_labels_subset = network_data["Graph"].values
-
-                # Plot with gap handling
-                plot_with_gap_handling(ax, list(graph_labels_subset), y_values,
-                                      gap_info["segments"],
-                                      marker='o', linestyle='-', markersize=10,
-                                      linewidth=2, color='#1f77b4')
-
-                ax.set_xlabel("Year - Month", fontsize=14, fontweight='bold')
-                ax.set_ylabel(prop, fontsize=14, fontweight='bold')
-                ax.set_title(f"{prop} Over Time", fontsize=16, fontweight='bold')
-
-                ax.yaxis.set_major_formatter(plt.FuncFormatter(format_large_numbers))
-                plt.yticks(fontsize=12, fontweight='bold')
-                plt.grid(True, alpha=0.3)
-                plt.tight_layout()
-
-                # Save plot
-                plot_filename = os.path.join(save_path, f"{prop}.pdf")
-                fig.savefig(plot_filename, dpi=300, bbox_inches='tight')
-                plt.close(fig)
-                print(f"✓ Plot saved: {plot_filename}")
-
-            except Exception as e:
-                print(f"Warning: Could not plot {prop}: {e}")
+        _plot_properties(network_data, gap_info, save_path)
 
     return network_data
+
+
+def _plot_properties(network_data: pd.DataFrame, gap_info: dict, save_path: str):
+    """Generate and save plots for network properties over time."""
+    properties_to_plot = [
+        "Number of Nodes",
+        "Number of Edges",
+        "Density",
+        "Diameter",
+        "Average Path Length",
+        "Mean Degree",
+        "Reciprocity",
+        "Transitivity",
+    ]
+
+    for prop in properties_to_plot:
+        if prop not in network_data.columns:
+            continue
+
+        try:
+            fig, ax = plt.subplots(figsize=(14, 7), dpi=100)
+
+            y_values = network_data[prop].values
+            graph_labels_subset = network_data["Graph"].values
+
+            # Plot with gap handling
+            plot_with_gap_handling(ax, list(graph_labels_subset), y_values,
+                                  gap_info["segments"],
+                                  marker='o', linestyle='-', markersize=10,
+                                  linewidth=2, color='#1f77b4')
+
+            ax.set_xlabel("Year - Month", fontsize=14, fontweight='bold')
+            ax.set_ylabel(prop, fontsize=14, fontweight='bold')
+            ax.set_title(f"{prop} Over Time", fontsize=16, fontweight='bold')
+
+            ax.yaxis.set_major_formatter(plt.FuncFormatter(format_large_numbers))
+            plt.yticks(fontsize=12, fontweight='bold')
+            plt.grid(True, alpha=0.3)
+            plt.tight_layout()
+
+            # Save plot
+            plot_filename = os.path.join(save_path, f"{prop}.pdf")
+            fig.savefig(plot_filename, dpi=300, bbox_inches='tight')
+            plt.close(fig)
+            print(f"✓ Plot saved: {plot_filename}")
+
+        except Exception as e:
+            print(f"Warning: Could not plot {prop}: {e}")

@@ -20,7 +20,8 @@ from ._gap_utilities import (
     detect_temporal_gaps,
     print_gap_report,
     plot_with_gap_handling,
-    format_large_numbers
+    format_large_numbers,
+    validate_and_setup_graphs
 )
 
 
@@ -69,15 +70,8 @@ def compute_edge_dynamics(graphs: List,
     differences between Graph 0 and Graph 1.
     """
 
-    # Validate inputs
-    if len(graphs) < 2:
-        raise ValueError("At least 2 graphs required to compute edge dynamics")
-
-    # Set up graph labels
-    if graph_labels is None:
-        graph_labels = [f"Graph {i+1}" for i in range(len(graphs))]
-    elif len(graph_labels) != len(graphs):
-        raise ValueError(f"graph_labels length ({len(graph_labels)}) must match graphs length ({len(graphs)})")
+    # Validate inputs and set up labels
+    graph_labels = validate_and_setup_graphs(graphs, graph_labels, min_length=2)
 
     dynamics_data = []
 
@@ -239,11 +233,8 @@ def edge_formation(graphs: List,
         DataFrame with edge dynamics
     """
 
-    # Set up graph labels
-    if graph_labels is None:
-        graph_labels = [f"Graph {i+1}" for i in range(len(graphs))]
-    elif len(graph_labels) != len(graphs):
-        raise ValueError(f"graph_labels length ({len(graph_labels)}) must match graphs length ({len(graphs)})")
+    # Validate inputs and set up labels
+    graph_labels = validate_and_setup_graphs(graphs, graph_labels, min_length=2)
 
     # Analyze temporal gaps
     gap_info = detect_temporal_gaps(graph_labels)
@@ -291,11 +282,8 @@ def edge_dissolution(graphs: List,
         DataFrame with edge dynamics
     """
 
-    # Set up graph labels
-    if graph_labels is None:
-        graph_labels = [f"Graph {i+1}" for i in range(len(graphs))]
-    elif len(graph_labels) != len(graphs):
-        raise ValueError(f"graph_labels length ({len(graph_labels)}) must match graphs length ({len(graphs)})")
+    # Validate inputs and set up labels
+    graph_labels = validate_and_setup_graphs(graphs, graph_labels, min_length=2)
 
     # Analyze temporal gaps
     gap_info = detect_temporal_gaps(graph_labels)

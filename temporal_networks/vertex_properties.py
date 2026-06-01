@@ -19,7 +19,8 @@ from typing import List, Optional
 from ._gap_utilities import (
     detect_temporal_gaps,
     print_gap_report,
-    plot_with_gap_handling
+    plot_with_gap_handling,
+    validate_and_setup_graphs
 )
 
 
@@ -95,15 +96,8 @@ def vertex_properties(graphs: List,
     - Vertex property plots preserve gaps as visual breaks
     """
 
-    # Validate inputs
-    if not graphs:
-        raise ValueError("graphs list cannot be empty")
-
-    # Set up graph labels
-    if graph_labels is None:
-        graph_labels = [f"Graph {i+1}" for i in range(len(graphs))]
-    elif len(graph_labels) != len(graphs):
-        raise ValueError(f"graph_labels length ({len(graph_labels)}) must match graphs length ({len(graphs)})")
+    # Validate inputs and set up labels
+    graph_labels = validate_and_setup_graphs(graphs, graph_labels)
 
     # Analyze temporal gaps
     gap_info = detect_temporal_gaps(graph_labels)

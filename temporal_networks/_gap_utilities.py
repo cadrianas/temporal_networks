@@ -12,6 +12,42 @@ from typing import List, Tuple, Optional, Dict
 
 
 # ============================================================================
+# VALIDATION UTILITIES
+# ============================================================================
+
+def validate_and_setup_graphs(graphs: List, graph_labels: Optional[List[str]] = None, min_length: int = 1) -> List[str]:
+    """
+    Validate the graphs list and setup/validate graph labels.
+
+    Parameters
+    ----------
+    graphs : list
+        List of graph objects
+    graph_labels : list of str, optional
+        Labels for each graph
+    min_length : int, optional
+        Minimum number of graphs required (default: 1)
+
+    Returns
+    -------
+    list of str
+        The validated graph labels
+    """
+    if len(graphs) < min_length:
+        if min_length == 1:
+            raise ValueError("graphs list cannot be empty")
+        else:
+            raise ValueError(f"At least {min_length} graphs required")
+
+    if graph_labels is None:
+        graph_labels = [f"Graph {i+1}" for i in range(len(graphs))]
+    elif len(graph_labels) != len(graphs):
+        raise ValueError(f"graph_labels length ({len(graph_labels)}) must match graphs length ({len(graphs)})")
+
+    return graph_labels
+
+
+# ============================================================================
 # DATETIME PARSING
 # ============================================================================
 
