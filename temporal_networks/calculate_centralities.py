@@ -135,55 +135,58 @@ def calculate_centralities(graphs: List,
             print(f"Warning: Graph {graph_name} has no 'name' or 'label' attribute. Using node indices.")
 
         # Compute centrality measures
+        vcount = graph.vcount()
+        none_list = [None] * vcount
+
         try:
             degree_centrality = graph.degree()
         except Exception:
-            degree_centrality = [None] * graph.vcount()
+            degree_centrality = none_list
 
         try:
             closeness_centrality = graph.closeness()
         except Exception:
-            closeness_centrality = [None] * graph.vcount()
+            closeness_centrality = none_list
 
         try:
             betweenness_centrality = graph.betweenness(directed=graph.is_directed())
         except Exception:
-            betweenness_centrality = [None] * graph.vcount()
+            betweenness_centrality = none_list
 
         try:
             eigenvector_centrality = graph.eigenvector_centrality()
         except Exception:
-            eigenvector_centrality = [None] * graph.vcount()
+            eigenvector_centrality = none_list
 
         try:
             pagerank = graph.pagerank()
         except Exception:
-            pagerank = [None] * graph.vcount()
+            pagerank = none_list
 
         try:
             harmonic_centrality = graph.harmonic_centrality()
         except Exception:
-            harmonic_centrality = [None] * graph.vcount()
+            harmonic_centrality = none_list
 
         try:
             eccentricity = graph.eccentricity()
         except Exception:
-            eccentricity = [None] * graph.vcount()
+            eccentricity = none_list
 
         try:
             clustering_coefficient = graph.transitivity_local_undirected()
         except Exception:
-            clustering_coefficient = [None] * graph.vcount()
+            clustering_coefficient = none_list
 
         try:
             authority_score = graph.authority_score()
         except Exception:
-            authority_score = [None] * graph.vcount()
+            authority_score = none_list
 
         try:
             hub_score = graph.hub_score()
         except Exception:
-            hub_score = [None] * graph.vcount()
+            hub_score = none_list
 
         # For each node, store all centrality measures
         for node_idx, node_label in enumerate(node_labels):
