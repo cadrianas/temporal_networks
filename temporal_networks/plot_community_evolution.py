@@ -161,13 +161,22 @@ def _create_animation_frames(graphs: List, communities_list: List[Any]) -> List[
                 name=f"Frame {frame_idx + 1}"
             )
             
+            edges = graph.get_edgelist()
+            pos_x = [p[0] for p in pos]
+            pos_y = [p[1] for p in pos]
+
             edge_x = []
             edge_y = []
-            for edge in graph.es:
-                source = edge.source
-                target = edge.target
-                edge_x.extend([pos[source][0], pos[target][0], None])
-                edge_y.extend([pos[source][1], pos[target][1], None])
+            app_x = edge_x.append
+            app_y = edge_y.append
+
+            for u, v in edges:
+                app_x(pos_x[u])
+                app_x(pos_x[v])
+                app_x(None)
+                app_y(pos_y[u])
+                app_y(pos_y[v])
+                app_y(None)
             
             edge_trace = go.Scatter(
                 x=edge_x,
