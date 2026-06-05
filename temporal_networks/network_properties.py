@@ -114,30 +114,11 @@ def network_properties(graphs: List,
     if report_gaps:
         print_gap_report(graph_labels, gap_info)
 
-    # Initialize lists to store properties
-    num_vertices = []
-    num_edges = []
-    density = []
-    strongly_connected_components = []
-    girth = []
-    diameter = []
-    avg_path_length = []
-    mean_degree = []
-    reciprocity = []
-    transitivity = []
-
-    # Additional graph type properties
-    is_bipartite = []
-    is_connected = []
-    is_dag = []
-    is_directed = []
-    is_named = []
-    is_simple = []
-    is_weighted = []
-    has_multiple = []
+    # Store results in a list of dictionaries to avoid repeated appends to multiple lists
+    results = []
 
     # Loop over each graph and compute properties
-    for graph in graphs:
+    for i, graph in enumerate(graphs):
         try:
             num_vertices.append(graph.vcount())
             num_edges.append(graph.ecount())
@@ -178,31 +159,22 @@ def network_properties(graphs: List,
             has_multiple.append(graph.has_multiple())
 
         except Exception as e:
-            print(f"Warning: Error processing graph {graph_labels[len(num_vertices)]}: {e}")
+            print(f"Warning: Error processing graph {graph_labels[i]}: {e}")
             continue
 
     # Create DataFrame with network properties
-    network_data = pd.DataFrame({
-        "Graph": graph_labels[:len(num_vertices)],
-        "Number of Nodes": num_vertices,
-        "Number of Edges": num_edges,
-        "Density": density,
-        "Strongly Connected Components": strongly_connected_components,
-        "Girth": girth,
-        "Diameter": diameter,
-        "Average Path Length": avg_path_length,
-        "Mean Degree": mean_degree,
-        "Reciprocity": reciprocity,
-        "Transitivity": transitivity,
-        "Is Bipartite": is_bipartite,
-        "Is Connected": is_connected,
-        "Is DAG": is_dag,
-        "Is Directed": is_directed,
-        "Is Named": is_named,
-        "Is Simple": is_simple,
-        "Is Weighted": is_weighted,
-        "Has Multiple": has_multiple,
-    })
+    network_data = pd.DataFrame(results)
+
+    # If no graphs were processed successfully, return an empty DataFrame with the correct columns
+    if network_data.empty:
+        columns = [
+            "Graph", "Number of Nodes", "Number of Edges", "Density",
+            "Strongly Connected Components", "Girth", "Diameter",
+            "Average Path Length", "Mean Degree", "Reciprocity", "Transitivity",
+            "Is Bipartite", "Is Connected", "Is DAG", "Is Directed",
+            "Is Named", "Is Simple", "Is Weighted", "Has Multiple"
+        ]
+        network_data = pd.DataFrame(columns=columns)
 
     # Save to CSV if requested
     if filename:

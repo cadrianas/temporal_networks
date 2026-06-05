@@ -11,11 +11,59 @@ from plotly.offline import plot
 import random
 from typing import List, Tuple, Optional, Any
 
+from typing import List
+from ._gap_utilities import validate_and_setup_graphs
+
 
 def _detect_communities(graphs: List, community_algorithm: str) -> Tuple[List[Any], str]:
     """Helper function to detect communities for each graph."""
-from typing import List
-from ._gap_utilities import validate_and_setup_graphs
+    # Map algorithm names to igraph functions
+    algorithm_map = {
+        "edge_betweenness": ig.Graph.community_edge_betweenness,
+        "walktrap": ig.Graph.community_walktrap,
+        "fast_greedy": ig.Graph.community_fastgreedy,
+        "label_prop": ig.Graph.community_label_propagation,
+        "spinglass": ig.Graph.community_spinglass,
+        "leiden": ig.Graph.community_leiden,
+        "louvain": ig.Graph.community_multilevel,
+    }
+
+    if community_algorithm.lower() not in algorithm_map:
+        raise ValueError(f"Unknown algorithm: {community_algorithm}. "
+                        f"Must be one of: {list(algorithm_map.keys())}")
+
+    algo_func = algorithm_map[community_algorithm.lower()]
+    algo_name = community_algorithm.capitalize()
+
+    print(f"Computing community evolution with {algo_name} algorithm...")
+
+    communities_list = []
+    for graph_idx, graph in enumerate(graphs):
+        try:
+            g = graph.copy()
+            if g.is_directed() and community_algorithm.lower() in ["walktrap",
+                                                                    "fast_greedy",
+                                                                    "label_prop",
+                                                                    "spinglass"]:
+                g = g.as_undirected()
+
+            try:
+                if community_algorithm.lower() in ["walktrap", "fast_greedy"]:
+                    partition = algo_func(g).as_clustering()
+                else:
+                    partition = algo_func(g)
+            except Exception as e:
+                print(f"  Warning: Community detection failed for graph {graph_idx}: {e}")
+                communities_list.append(None)
+                continue
+
+            communities_list.append(partition)
+
+        except Exception as e:
+            print(f"  Warning: Error processing graph {graph_idx}: {e}")
+            communities_list.append(None)
+
+    return communities_list, algo_name
 
 
 def plot_community_evolution(graphs: List,
@@ -70,41 +118,36 @@ def plot_community_evolution(graphs: List,
     and store as "x" and "y" vertex attributes.
     """
     
+    if not graphs:
+        raise ValueError("graphs list cannot be empty")
+
     # Validate inputs
     validate_and_setup_graphs(graphs)
     
-    # Map algorithm names to igraph functions
-    algorithm_map = {
-        "edge_betweenness": ig.Graph.community_edge_betweenness,
-        "walktrap": ig.Graph.community_walktrap,
-        "fast_greedy": ig.Graph.community_fastgreedy,
-        "label_prop": ig.Graph.community_label_propagation,
-        "spinglass": ig.Graph.community_spinglass,
-        "leiden": ig.Graph.community_leiden,
-        "louvain": ig.Graph.community_multilevel,
-    }
-    
-    if community_algorithm.lower() not in algorithm_map:
-        raise ValueError(f"Unknown algorithm: {community_algorithm}. "
-                        f"Must be one of: {list(algorithm_map.keys())}")
-    
-    algo_func = algorithm_map[community_algorithm.lower()]
-    algo_name = community_algorithm.capitalize()
-    
-    print(f"Computing community evolution with {algo_name} algorithm...")
+    communities_list, algo_name = _detect_communities(graphs, community_algorithm)
+
+    frames = _create_animation_frames(graphs, communities_list)
+
+    if not frames:
+        raise RuntimeError("No frames were successfully created. "
+                          "Check that community detection worked correctly.")
+
+    layout = _create_animation_layout(algo_name, frames)
+
+    initial_data = frames[0].data if frames else []
     
     communities_list = []
     for graph_idx, graph in enumerate(graphs):
         try:
             g = graph.copy()
-            if g.is_directed() and community_algorithm.lower() in ["walktrap", 
+            if g.is_directed() and community_algorithm.lower() in {"walktrap",
                                                                     "fast_greedy",
                                                                     "label_prop",
-                                                                    "spinglass"]:
+                                                                    "spinglass"}:
                 g = g.as_undirected()
             
             try:
-                if community_algorithm.lower() in ["walktrap", "fast_greedy"]:
+                if community_algorithm.lower() in {"walktrap", "fast_greedy"}:
                     partition = algo_func(g).as_clustering()
                 else:
                     partition = algo_func(g)
@@ -118,8 +161,14 @@ def plot_community_evolution(graphs: List,
         except Exception as e:
             print(f"  Warning: Error processing graph {graph_idx}: {e}")
             communities_list.append(None)
+    fig = go.Figure(
+        data=initial_data,
+        layout=layout,
+        frames=frames
+    )
 
-    return communities_list, algo_name
+    plot(fig, filename=output_file, auto_open=False)
+    print(f"✓ Community evolution animation saved to {output_file}")
 
 
 def _create_animation_frames(graphs: List, communities_list: List[Any]) -> List[go.Frame]:
@@ -161,13 +210,22 @@ def _create_animation_frames(graphs: List, communities_list: List[Any]) -> List[
                 name=f"Frame {frame_idx + 1}"
             )
             
+            edges = graph.get_edgelist()
+            pos_x = [p[0] for p in pos]
+            pos_y = [p[1] for p in pos]
+
             edge_x = []
             edge_y = []
-            for edge in graph.es:
-                source = edge.source
-                target = edge.target
-                edge_x.extend([pos[source][0], pos[target][0], None])
-                edge_y.extend([pos[source][1], pos[target][1], None])
+            app_x = edge_x.append
+            app_y = edge_y.append
+
+            for u, v in edges:
+                app_x(pos_x[u])
+                app_x(pos_x[v])
+                app_x(None)
+                app_y(pos_y[u])
+                app_y(pos_y[v])
+                app_y(None)
             
             edge_trace = go.Scatter(
                 x=edge_x,
