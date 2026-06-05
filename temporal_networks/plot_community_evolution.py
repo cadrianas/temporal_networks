@@ -136,6 +136,31 @@ def plot_community_evolution(graphs: List,
 
     initial_data = frames[0].data if frames else []
     
+    communities_list = []
+    for graph_idx, graph in enumerate(graphs):
+        try:
+            g = graph.copy()
+            if g.is_directed() and community_algorithm.lower() in {"walktrap",
+                                                                    "fast_greedy",
+                                                                    "label_prop",
+                                                                    "spinglass"}:
+                g = g.as_undirected()
+            
+            try:
+                if community_algorithm.lower() in {"walktrap", "fast_greedy"}:
+                    partition = algo_func(g).as_clustering()
+                else:
+                    partition = algo_func(g)
+            except Exception as e:
+                print(f"  Warning: Community detection failed for graph {graph_idx}: {e}")
+                communities_list.append(None)
+                continue
+            
+            communities_list.append(partition)
+            
+        except Exception as e:
+            print(f"  Warning: Error processing graph {graph_idx}: {e}")
+            communities_list.append(None)
     fig = go.Figure(
         data=initial_data,
         layout=layout,
