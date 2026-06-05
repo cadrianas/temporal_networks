@@ -131,10 +131,10 @@ def communities_measures(graphs: List,
             try:
                 # Convert to undirected for algorithms that require it
                 g = graph.copy()
-                if g.is_directed() and algo_func in ["community_walktrap",
+                if g.is_directed() and algo_func in {"community_walktrap",
                                                       "community_fastgreedy",
                                                       "community_label_propagation",
-                                                      "community_spinglass"]:
+                                                      "community_spinglass"}:
                     g = g.as_undirected()
 
                 # Simplify graph to remove multi-edges and loops
@@ -153,7 +153,7 @@ def communities_measures(graphs: List,
 
                 # Detect communities using the specified algorithm
                 try:
-                    if algo_func in ["community_walktrap", "community_fastgreedy"]:
+                    if algo_func in {"community_walktrap", "community_fastgreedy"}:
                         partition = getattr(g, algo_func)(weights=weights).as_clustering()
                     elif algo_func == "community_infomap":
                         partition = getattr(g, algo_func)(edge_weights=weights)
