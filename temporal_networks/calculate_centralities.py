@@ -127,6 +127,7 @@ def calculate_centralities(graphs: List,
         vcount = graph.vcount()
 
         vcount = graph.vcount()
+
         # Get node labels from graph attributes
         if "name" in graph.vs.attributes():
             node_labels = graph.vs["name"]
