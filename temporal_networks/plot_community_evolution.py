@@ -121,7 +121,7 @@ def plot_community_evolution(graphs: List,
 
     # Validate inputs
     validate_and_setup_graphs(graphs)
-    
+
     communities_list, algo_name = _detect_communities(graphs, community_algorithm)
 
     frames = _create_animation_frames(graphs, communities_list)
@@ -133,32 +133,7 @@ def plot_community_evolution(graphs: List,
     layout = _create_animation_layout(algo_name, frames)
 
     initial_data = frames[0].data if frames else []
-    
-    communities_list = []
-    for graph_idx, graph in enumerate(graphs):
-        try:
-            g = graph.copy()
-            if g.is_directed() and community_algorithm.lower() in {"walktrap",
-                                                                    "fast_greedy",
-                                                                    "label_prop",
-                                                                    "spinglass"}:
-                g = g.as_undirected()
-            
-            try:
-                if community_algorithm.lower() in {"walktrap", "fast_greedy"}:
-                    partition = algo_func(g).as_clustering()
-                else:
-                    partition = algo_func(g)
-            except Exception as e:
-                print(f"  Warning: Community detection failed for graph {graph_idx}: {e}")
-                communities_list.append(None)
-                continue
-            
-            communities_list.append(partition)
-            
-        except Exception as e:
-            print(f"  Warning: Error processing graph {graph_idx}: {e}")
-            communities_list.append(None)
+
     fig = go.Figure(
         data=initial_data,
         layout=layout,
@@ -321,80 +296,3 @@ def _create_animation_layout(algo_name: str, frames: List[go.Frame]) -> go.Layou
             ]
         }]
     )
-
-
-def plot_community_evolution(graphs: List,
-                            community_algorithm: str,
-                            output_file: str = "community_evolution.html") -> None:
-    """
-    Create interactive animation of community evolution across temporal network.
-
-    Generates an interactive Plotly animation showing how community structures
-    detected by a specified algorithm evolve across a sequence of networks.
-    Nodes are colored by community membership and animation allows frame-by-frame
-    viewing of the temporal evolution.
-
-    Parameters
-    ----------
-    graphs : list of igraph.Graph
-        List of igraph.Graph objects to analyze. All graphs should have
-        consistent node labels.
-    community_algorithm : str
-        Community detection algorithm to use. Options:
-        - "edge_betweenness"
-        - "walktrap"
-        - "fast_greedy"
-        - "label_prop"
-        - "spinglass"
-        - "leiden"
-        - "louvain"
-    output_file : str, optional
-        Filename for saving the HTML animation (default: "community_evolution.html")
-
-    Returns
-    -------
-    None
-        Saves output_file with interactive animation
-
-    Examples
-    --------
-    >>> import igraph as ig
-    >>> from temporal_networks import plot_community_evolution
-    >>> graphs = [ig.Graph.Barabasi(n=50, m=2) for _ in range(12)]
-    >>> plot_community_evolution(graphs, community_algorithm="louvain")
-
-    Notes
-    -----
-    The animation creates one frame per graph, with playback controls:
-    - Play: Animate through all frames
-    - Pause: Stop animation
-    - Restart: Return to first frame
-
-    Node positions are randomly assigned if not present in graph attributes.
-    For better visualization, pre-compute positions (e.g., using Fruchterman-Reingold)
-    and store as "x" and "y" vertex attributes.
-    """
-
-    if not graphs:
-        raise ValueError("graphs list cannot be empty")
-
-    communities_list, algo_name = _detect_communities(graphs, community_algorithm)
-
-    frames = _create_animation_frames(graphs, communities_list)
-
-    if not frames:
-        raise RuntimeError("No frames were successfully created. "
-                          "Check that community detection worked correctly.")
-
-    layout = _create_animation_layout(algo_name, frames)
-
-    initial_data = frames[0].data if frames else []
-    
-    fig = go.Figure(
-        data=initial_data,
-        layout=layout,
-        frames=frames
-    )
-
-    plot(fig, filename=output_file, auto_open=False)
-    print(f"✓ Community evolution animation saved to {output_file}")

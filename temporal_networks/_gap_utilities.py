@@ -409,7 +409,7 @@ def create_gap_dataframe(graph_labels: List[str], gap_info: Dict) -> pd.DataFram
 # PLOTTING UTILITIES
 # ============================================================================
 
-def format_large_numbers(x, pos):
+def format_large_numbers(x: float, pos: int) -> str:
     """
     Format large numbers with appropriate units (k, M, B).
 
