@@ -1,0 +1,4 @@
+include README.md
+include LICENSE
+recursive-exclude examples/plots *
+recursive-exclude tests *
