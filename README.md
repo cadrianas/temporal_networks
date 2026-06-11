@@ -1,29 +1,40 @@
 # temporal_networks
 
+[![PyPI version](https://badge.fury.io/py/temporal-networks.svg)](https://badge.fury.io/py/temporal-networks)
+[![CI](https://github.com/cadrianas/temporal_networks/actions/workflows/tests.yml/badge.svg)](https://github.com/cadrianas/temporal_networks/actions/workflows/tests.yml)
+[![Documentation Status](https://readthedocs.org/projects/temporal-networks/badge/?version=latest)](https://temporal-networks.readthedocs.io)
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
-[![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
-[![CI](https://github.com/cadrianas/temporal_networks/actions/workflows/ci.yml/badge.svg)](https://github.com/cadrianas/temporal_networks/actions)
-[![Documentation Status](https://readthedocs.org/projects/temporal-networks/badge/?version=latest)](https://temporal-networks.readthedocs.io/en/latest/?badge=latest)
 
-A Python package for analyzing temporal network evolution with **automatic gap detection**.
+A Python package for analyzing temporal network evolution with automatic 
+gap detection.
 
-`temporal_networks` is designed for understanding how network structure and properties change over time. Unlike general-purpose libraries, it handles the temporal dimension natively, providing automatic detection and visualization of temporal gaps (missing data periods)—a critical feature for real-world datasets with seasonal closures, maintenance windows, or crisis-driven interruptions.
+`temporal_networks` is designed for researchers who need to understand how 
+network structure and properties change over time. Unlike general-purpose 
+graph libraries such as [`networkx`](https://networkx.org/) or 
+[`igraph`](https://igraph.org/), it treats the temporal dimension as a 
+first-class feature, with native support for irregular time series and 
+missing data periods. Compared to other temporal network packages such as 
+[`teneto`](https://teneto.readthedocs.io/) and 
+[`dynetx`](https://dynetx.readthedocs.io/), `temporal_networks` focuses 
+specifically on gap-aware analysis and visualization -- automatically 
+detecting and correctly representing seasonal closures, maintenance windows, 
+or crisis-driven interruptions rather than drawing misleading continuous 
+lines across missing periods.
 
-## Key Features
-
-- **Automatic Gap Detection**: Seamlessly handles irregular time series and seasonal data.
-- **Network Properties**: Track evolution of density, diameter, clustering, and connectivity.
-- **Centrality Trajectories**: Compute 13 different centrality measures across time steps.
-- **Community Evolution**: Track structural changes using 7 different algorithms (Leiden, Louvain, Walktrap, etc.).
-- **Edge Dynamics**: Analyze formation and dissolution patterns between consecutive time points.
-- **Vertex Tracking**: Follow individual node importance and local structure over time.
-- **Gap-Aware Visualization**: Automatic generation of plots that correctly represent temporal discontinuities.
+See the full documentation at 
+[temporal-networks.readthedocs.io](https://temporal-networks.readthedocs.io).
 
 ## Installation
 
 ```bash
+pip install temporal_networks
+```
+
+Or install from source:
+
+```bash
 git clone https://github.com/cadrianas/temporal_networks
-cd NetworkPackage
+cd temporal_networks
 pip install -e .
 ```
 
@@ -31,65 +42,82 @@ pip install -e .
 
 ```python
 import igraph as ig
+import random
 from temporal_networks import network_properties
 
-# Load or create your temporal graphs (12 months of data)
-graphs = [ig.Graph.Barabasi(n=50, m=2) for _ in range(12)]
-# Create labels for each month
-labels = [f"2024-{i+1:02d}" for i in range(12)]
+# Set seed for reproducibility
+random.seed(42)
 
-# Analyze properties with automatic gap detection
-# Results are returned as a pandas DataFrame and plots are saved to 'plots/'
-props = network_properties(graphs, graph_labels=labels, save_path="plots/")
+# Create 12 monthly network snapshots with a gap in summer
+graphs = [ig.Graph.Barabasi(n=50, m=2) for _ in range(12)]
+labels = ["2024-01", "2024-02", "2024-03",
+          "2024-04", "2024-05", "2024-06",
+          "2024-10", "2024-11", "2024-12",
+          "2025-01", "2025-02", "2025-03"]
+
+# Analyze structural properties across time steps.
+# Gap between June and October is detected and handled automatically.
+props = network_properties(graphs, graph_labels=labels)
+print(props)
 ```
+
+This prints a pandas DataFrame with one row per time step and columns for 
+density, diameter, clustering coefficient, and connectivity. No files are 
+written unless you pass `save_path`.
 
 ## API Overview
 
-The package provides several high-level functions for temporal analysis:
+| Function | Description |
+|---|---|
+| `network_properties()` | Structural metrics for each network snapshot |
+| `calculate_centralities()` | 13 centrality measures tracked over time |
+| `communities_measures()` | 7 community detection algorithms with evolution tracking |
+| `vertex_properties()` | Single-node property trajectory |
+| `compute_edge_dynamics()` | Formation and dissolution patterns between snapshots |
+| `detect_temporal_gaps()` | Standalone gap analysis utility |
 
-- `network_properties()`: Compute structural metrics for each network snapshot.
-- `calculate_centralities()`: Track 13 different centrality measures over time.
-- `communities_measures()`: Apply 7 community detection algorithms and track evolution.
-- `vertex_properties()`: Track a specific node's properties through the temporal sequence.
-- `edge_formation()` / `edge_dissolution()`: Analyze route changes between consecutive steps.
-- `detect_temporal_gaps()`: Standalone utility for analyzing temporal discontinuities.
+See the [API reference](https://temporal-networks.readthedocs.io/api) for 
+full parameter documentation.
+
+## Tutorials
+
+- [Synthetic data walkthrough](examples/example_1_synthetic.py) -- 
+  gap-aware analysis on generated data
+- Further tutorials are forthcoming.
 
 ## Reproducibility
 
-To reproduce the synthetic results and gap-aware visualizations demonstrated in our research:
+To reproduce the synthetic results and gap-aware visualizations:
 
 ```bash
 python examples/example_1_synthetic.py
 ```
-This script generates both continuous and gapped datasets, performs a full suite of analyses, and saves comparative visualizations to the `plots/` directory.
 
-## Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request. For major changes, please open an issue first to discuss what you would like to change.
-
-1. Fork the Project
-2. Create your Feature Branch (`git checkout -b feature/AmazingFeature`)
-3. Commit your Changes (`git commit -m 'Add some AmazingFeature'`)
-4. Push to the Branch (`git push origin feature/AmazingFeature`)
-5. Open a Pull Request
-
-### Testing locally
-
-Run the full test suite to ensure no regressions:
-```bash
-python tests/run_tests.py
-```
+This generates both continuous and gapped datasets, runs a full suite of 
+analyses, and saves comparative visualizations to the `plots/` directory.
 
 ## Citation
 
-If you use this package in your research, please cite:
+If you use `temporal_networks` in your research, please cite:
 
-Ciupeanu, A.-S., & Arino, J. (2026). temporal_networks: A Python package for analyzing temporal network evolution with automatic gap detection.
+```bibtex
+@software{ciupeanu_arino_temporal_networks,
+  author    = {Ciupeanu, Adriana-Stefania and Arino, Julien},
+  title     = {temporal\_networks: A Python package for analyzing
+               temporal network evolution with automatic gap detection},
+  year      = {2026},
+  publisher = {GitHub},
+  url       = {https://github.com/cadrianas/temporal_networks},
+  note      = {Version 0.1.0}
+}
+```
 
-## Credits
+## Contributing
 
-Developed by **Adriana-Stefania Ciupeanu** and **Julien Arino** at the University of Manitoba.
+Contributions are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md) for 
+instructions on setting up a development environment and running the test 
+suite locally.
 
 ## License
 
-This project is licensed under the GPL-3.0 License - see the [LICENSE](LICENSE) file for details.
+GPL-3.0. See [LICENSE](LICENSE) for details.
