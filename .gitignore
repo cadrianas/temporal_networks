@@ -233,3 +233,5 @@ test_output/
 plots/
 
 .venv-audit/
+plan.md
+.idea/

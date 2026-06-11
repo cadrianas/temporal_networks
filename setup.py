@@ -11,7 +11,7 @@ setup(
     long_description_content_type="text/markdown",
     author="Adriana-Stefania Ciupeanu, Julien Arino",
     author_email="cadrianas@gmail.com, Julien.Arino@umanitoba.ca",
-    url="https://github.com/cadrianas/NetworkPackage",
+    url="https://github.com/cadrianas/temporal_networks",
     keywords=["temporal networks", "network analysis",
               "graph theory", "time series", "igraph"],
     license="GPL-3.0",
