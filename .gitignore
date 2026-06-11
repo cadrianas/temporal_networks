@@ -231,3 +231,7 @@ test_output/
 *.csv
 *.html
 plots/
+
+.venv-audit/
+plan.md
+.idea/
