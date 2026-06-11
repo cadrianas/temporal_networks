@@ -23,7 +23,7 @@ A Python package for analyzing temporal network evolution with **automatic gap d
 
 ```bash
 git clone https://github.com/cadrianas/temporal_networks
-cd temporal_networks
+cd NetworkPackage
 pip install -e .
 ```
 
