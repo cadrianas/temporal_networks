@@ -33,7 +33,7 @@ from ._gap_utilities import (
 def network_properties(graphs: List,
                       graph_labels: Optional[List[str]] = None,
                       filename: Optional[str] = None,
-                      save_path: str = "plots/",
+                      save_path: Optional[str] = None,
                       visualisation: bool = True,
                       report_gaps: bool = True) -> pd.DataFrame:
     """
@@ -58,7 +58,8 @@ def network_properties(graphs: List,
     filename : str, optional
         If provided, saves numerical results to CSV with this filename
     save_path : str, optional
-        Directory path for saving visualizations (default: "plots/")
+        Directory path for saving visualizations. If None (default),
+        no files are saved.
     visualisation : bool, optional
         If True (default), generates plots for each numerical property
     report_gaps : bool, optional
@@ -105,7 +106,7 @@ def network_properties(graphs: List,
     graph_labels = validate_and_setup_graphs(graphs, graph_labels)
 
     # Create output directory
-    if save_path:
+    if save_path is not None:
         os.makedirs(save_path, exist_ok=True)
 
     # Analyze temporal gaps
@@ -114,49 +115,56 @@ def network_properties(graphs: List,
     if report_gaps:
         print_gap_report(graph_labels, gap_info)
 
-    # Store results in a list of dictionaries to avoid repeated appends to multiple lists
+    # Store results in a list of dictionaries to avoid repeated appends
+    # to multiple lists
     results = []
 
     # Loop over each graph and compute properties
     for i, graph in enumerate(graphs):
         try:
-            num_vertices.append(graph.vcount())
-            num_edges.append(graph.ecount())
-            density.append(graph.density())
-
-            strongly_connected_components.append(len(graph.components(mode="STRONG")))
+            try:
+                diameter = graph.diameter()
+            except ig.InternalError:
+                diameter = np.nan
 
             try:
-                diameter.append(graph.diameter())
+                girth = graph.girth()
             except ig.InternalError:
-                diameter.append(np.nan)
+                girth = np.nan
 
             try:
-                girth.append(graph.girth())
+                avg_path_length = np.mean(graph.shortest_paths())
             except ig.InternalError:
-                girth.append(np.nan)
+                avg_path_length = np.nan
 
             try:
-                avg_path_length.append(np.mean(graph.shortest_paths()))
+                transitivity = graph.transitivity_undirected()
             except ig.InternalError:
-                avg_path_length.append(np.nan)
+                transitivity = np.nan
 
-            mean_degree.append(np.mean(graph.degree()))
-            reciprocity.append(graph.reciprocity())
-
-            try:
-                transitivity.append(graph.transitivity_undirected())
-            except ig.InternalError:
-                transitivity.append(np.nan)
-
-            is_bipartite.append(graph.is_bipartite())
-            is_connected.append(graph.is_connected())
-            is_dag.append(graph.is_dag())
-            is_directed.append(graph.is_directed())
-            is_named.append(graph.is_named())
-            is_simple.append(graph.is_simple())
-            is_weighted.append(graph.is_weighted())
-            has_multiple.append(graph.has_multiple())
+            results.append({
+                "Graph": graph_labels[i],
+                "Number of Nodes": graph.vcount(),
+                "Number of Edges": graph.ecount(),
+                "Density": graph.density(),
+                "Strongly Connected Components": len(
+                    graph.components(mode="STRONG")
+                ),
+                "Girth": girth,
+                "Diameter": diameter,
+                "Average Path Length": avg_path_length,
+                "Mean Degree": np.mean(graph.degree()),
+                "Reciprocity": graph.reciprocity(),
+                "Transitivity": transitivity,
+                "Is Bipartite": graph.is_bipartite(),
+                "Is Connected": graph.is_connected(),
+                "Is DAG": graph.is_dag(),
+                "Is Directed": graph.is_directed(),
+                "Is Named": graph.is_named(),
+                "Is Simple": graph.is_simple(),
+                "Is Weighted": graph.is_weighted(),
+                "Has Multiple": graph.has_multiple(),
+            })
 
         except Exception as e:
             print(f"Warning: Error processing graph {graph_labels[i]}: {e}")
@@ -165,7 +173,8 @@ def network_properties(graphs: List,
     # Create DataFrame with network properties
     network_data = pd.DataFrame(results)
 
-    # If no graphs were processed successfully, return an empty DataFrame with the correct columns
+    # If no graphs were processed successfully, return an empty DataFrame
+    # with the correct columns
     if network_data.empty:
         columns = [
             "Graph", "Number of Nodes", "Number of Edges", "Density",
@@ -185,14 +194,30 @@ def network_properties(graphs: List,
             print(f"Error saving to CSV: {e}")
 
     # Generate visualizations with gap handling
-    if visualisation:
+    if visualisation and save_path is not None:
         _plot_properties(network_data, gap_info, save_path)
 
     return network_data
 
 
-def _plot_properties(network_data: pd.DataFrame, gap_info: dict, save_path: str):
-    """Generate and save plots for network properties over time."""
+def _plot_properties(network_data: pd.DataFrame, gap_info: dict,
+                     save_path: str) -> None:
+    """
+    Generate and save plots for network properties over time.
+
+    Parameters
+    ----------
+    network_data : pandas.DataFrame
+        DataFrame of computed network properties, one row per graph.
+    gap_info : dict
+        Temporal gap information from ``detect_temporal_gaps``.
+    save_path : str
+        Directory path where the property plots are saved.
+
+    Returns
+    -------
+    None
+    """
     properties_to_plot = [
         "Number of Nodes",
         "Number of Edges",

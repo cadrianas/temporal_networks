@@ -32,7 +32,7 @@ def vertex_properties(graphs: List,
                      node_name: str,
                      graph_labels: Optional[List[str]] = None,
                      filename: Optional[str] = None,
-                     save_path: str = "plots/",
+                     save_path: Optional[str] = None,
                      visualisation: bool = True,
                      report_gaps: bool = True) -> pd.DataFrame:
     """
@@ -58,7 +58,8 @@ def vertex_properties(graphs: List,
     filename : str, optional
         CSV filename for saving results. If None, results are not saved.
     save_path : str, optional
-        Directory for saving visualizations (default: "plots/")
+        Directory for saving visualizations. If None (default), plots
+        are not saved.
     visualisation : bool, optional
         If True (default), generates plots for each property over time
     report_gaps : bool, optional
@@ -118,17 +119,34 @@ def vertex_properties(graphs: List,
             print(f"Error saving vertex properties: {e}")
 
     # Generate visualizations with gap handling
-    if visualisation:
+    if visualisation and save_path is not None:
         # Create output directory
-        if save_path:
-            os.makedirs(save_path, exist_ok=True)
+        os.makedirs(save_path, exist_ok=True)
 
-        _plot_vertex_properties(properties_df, node_name, graph_labels, gap_info, save_path)
+        _plot_vertex_properties(properties_df, node_name, graph_labels,
+                                gap_info, save_path)
 
     return properties_df
 
-def _compute_vertex_properties(graphs: List, node_name: str, graph_labels: List[str]) -> pd.DataFrame:
-    """Helper function to compute vertex properties across graphs."""
+def _compute_vertex_properties(graphs: List, node_name: str,
+                               graph_labels: List[str]) -> pd.DataFrame:
+    """
+    Compute vertex properties for a single node across graphs.
+
+    Parameters
+    ----------
+    graphs : list of igraph.Graph
+        Graphs to extract the node's properties from.
+    node_name : str
+        Name or label of the node of interest.
+    graph_labels : list of str
+        Temporal label for each graph, used as the "Graph" column.
+
+    Returns
+    -------
+    pandas.DataFrame
+        One row per graph with a column for each computed metric.
+    """
     properties = {
         "Graph": [],
         "Degree_Centrality": [],
@@ -156,7 +174,8 @@ def _compute_vertex_properties(graphs: List, node_name: str, graph_labels: List[
         elif "label" in graph.vs.attributes() and node_name in graph.vs["label"]:
             node_index = graph.vs.find(label=node_name).index
         else:
-            print(f"Warning: Node '{node_name}' not found in graph {graph_name}. Skipping.")
+            print(f"Warning: Node '{node_name}' not found in graph "
+                  f"{graph_name}. Skipping.")
             continue
 
         # Record graph name
@@ -179,7 +198,8 @@ def _compute_vertex_properties(graphs: List, node_name: str, graph_labels: List[
             properties["Betweenness_Centrality"].append(None)
 
         try:
-            properties["Eigenvector_Centrality"].append(graph.eigenvector_centrality()[node_index])
+            properties["Eigenvector_Centrality"].append(
+                graph.eigenvector_centrality()[node_index])
         except Exception:
             properties["Eigenvector_Centrality"].append(None)
 
@@ -189,7 +209,8 @@ def _compute_vertex_properties(graphs: List, node_name: str, graph_labels: List[
             properties["PageRank"].append(None)
 
         try:
-            properties["Harmonic_Centrality"].append(graph.harmonic_centrality()[node_index])
+            properties["Harmonic_Centrality"].append(
+                graph.harmonic_centrality()[node_index])
         except Exception:
             properties["Harmonic_Centrality"].append(None)
 
@@ -199,7 +220,8 @@ def _compute_vertex_properties(graphs: List, node_name: str, graph_labels: List[
             properties["Eccentricity"].append(None)
 
         try:
-            properties["Clustering_Coefficient"].append(graph.transitivity_local_undirected()[node_index])
+            properties["Clustering_Coefficient"].append(
+                graph.transitivity_local_undirected()[node_index])
         except Exception:
             properties["Clustering_Coefficient"].append(None)
 
@@ -227,8 +249,29 @@ def _compute_vertex_properties(graphs: List, node_name: str, graph_labels: List[
     return pd.DataFrame(properties)
 
 
-def _plot_vertex_properties(properties_df: pd.DataFrame, node_name: str, graph_labels: List[str], gap_info: dict, save_path: str):
-    """Helper function to plot vertex properties with gap handling."""
+def _plot_vertex_properties(properties_df: pd.DataFrame, node_name: str,
+                            graph_labels: List[str], gap_info: dict,
+                            save_path: str) -> None:
+    """
+    Plot vertex properties over time with gap handling.
+
+    Parameters
+    ----------
+    properties_df : pandas.DataFrame
+        DataFrame of per-graph vertex properties.
+    node_name : str
+        Name or label of the node being plotted.
+    graph_labels : list of str
+        Temporal label for each graph, used for x-axis ordering.
+    gap_info : dict
+        Temporal gap information from ``detect_temporal_gaps``.
+    save_path : str
+        Directory path where the plots are saved.
+
+    Returns
+    -------
+    None
+    """
     properties_to_plot = [
         "Degree_Centrality",
         "Closeness_Centrality",
@@ -253,7 +296,8 @@ def _plot_vertex_properties(properties_df: pd.DataFrame, node_name: str, graph_l
             fig, ax = plt.subplots(figsize=(12, 6), dpi=100)
 
             # Ensure data covers all graph_labels in correct order
-            plot_df = properties_df.set_index("Graph").reindex(graph_labels).reset_index()
+            plot_df = (properties_df.set_index("Graph")
+                       .reindex(graph_labels).reset_index())
             y_values = plot_df[prop].values
 
             # Use gap-aware plotting
@@ -264,7 +308,8 @@ def _plot_vertex_properties(properties_df: pd.DataFrame, node_name: str, graph_l
 
             ax.set_xlabel("Year - Month", fontsize=12, fontweight='bold')
             ax.set_ylabel(prop.replace('_', ' '), fontsize=12, fontweight='bold')
-            ax.set_title(f"{prop.replace('_', ' ')} for {node_name}", fontsize=14, fontweight='bold')
+            ax.set_title(f"{prop.replace('_', ' ')} for {node_name}",
+                         fontsize=14, fontweight='bold')
 
             plt.yticks(fontsize=10, fontweight='bold')
             plt.grid(True, alpha=0.3)
@@ -284,11 +329,13 @@ def _plot_vertex_properties(properties_df: pd.DataFrame, node_name: str, graph_l
         fig, ax = plt.subplots(figsize=(14, 8), dpi=100)
 
         # Ensure data covers all graph_labels in correct order
-        combined_plot_df = properties_df.set_index("Graph").reindex(graph_labels).reset_index()
+        combined_plot_df = (properties_df.set_index("Graph")
+                            .reindex(graph_labels).reset_index())
 
         # Plot all numeric properties
         for prop in properties_to_plot:
-            if prop in combined_plot_df.columns and not combined_plot_df[prop].isna().all():
+            if (prop in combined_plot_df.columns
+                    and not combined_plot_df[prop].isna().all()):
                 y_values = combined_plot_df[prop].values
                 if np.nanmax(y_values) > 0:
                     y_values = y_values / np.nanmax(y_values)

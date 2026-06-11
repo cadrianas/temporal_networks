@@ -13,8 +13,24 @@ from typing import List, Tuple, Optional, Any
 from ._gap_utilities import validate_and_setup_graphs
 
 
-def _detect_communities(graphs: List, community_algorithm: str) -> Tuple[List[Any], str]:
-    """Helper function to detect communities for each graph."""
+def _detect_communities(graphs: List,
+                        community_algorithm: str) -> Tuple[List[Any], str]:
+    """
+    Detect communities for each graph using the chosen algorithm.
+
+    Parameters
+    ----------
+    graphs : list of igraph.Graph
+        Graphs on which to run community detection.
+    community_algorithm : str
+        Name of the community detection algorithm to apply.
+
+    Returns
+    -------
+    tuple of (list, str)
+        The per-graph partitions (None where detection failed) and the
+        capitalized algorithm name.
+    """
     # Map algorithm names to igraph functions
     algorithm_map = {
         "edge_betweenness": ig.Graph.community_edge_betweenness,
@@ -51,7 +67,8 @@ def _detect_communities(graphs: List, community_algorithm: str) -> Tuple[List[An
                 else:
                     partition = algo_func(g)
             except Exception as e:
-                print(f"  Warning: Community detection failed for graph {graph_idx}: {e}")
+                print(f"  Warning: Community detection failed for "
+                      f"graph {graph_idx}: {e}")
                 communities_list.append(None)
                 continue
 
@@ -144,8 +161,23 @@ def plot_community_evolution(graphs: List,
     print(f"✓ Community evolution animation saved to {output_file}")
 
 
-def _create_animation_frames(graphs: List, communities_list: List[Any]) -> List[go.Frame]:
-    """Helper function to create animation frames."""
+def _create_animation_frames(graphs: List,
+                             communities_list: List[Any]) -> List[go.Frame]:
+    """
+    Create Plotly animation frames from graphs and their partitions.
+
+    Parameters
+    ----------
+    graphs : list of igraph.Graph
+        Graphs to render, one per animation frame.
+    communities_list : list
+        Community partition for each graph (None entries are skipped).
+
+    Returns
+    -------
+    list of plotly.graph_objs.Frame
+        One frame per successfully rendered graph.
+    """
     frames = []
     
     for frame_idx, (graph, partition) in enumerate(zip(graphs, communities_list)):
@@ -159,7 +191,8 @@ def _create_animation_frames(graphs: List, communities_list: List[Any]) -> List[
             else:
                 pos = [(random.uniform(0, 1), random.uniform(0, 1)) 
                        for _ in graph.vs]
-                print(f"  Note: Frame {frame_idx} using random positions (no x/y attributes)")
+                print(f"  Note: Frame {frame_idx} using random "
+                      f"positions (no x/y attributes)")
             
             try:
                 community_membership = partition.membership
@@ -216,14 +249,29 @@ def _create_animation_frames(graphs: List, communities_list: List[Any]) -> List[
             frames.append(frame)
             
         except Exception as e:
-            print(f"  Warning: Could not create visualization for frame {frame_idx}: {e}")
+            print(f"  Warning: Could not create visualization for "
+                  f"frame {frame_idx}: {e}")
             continue
 
     return frames
 
 
 def _create_animation_layout(algo_name: str, frames: List[go.Frame]) -> go.Layout:
-    """Helper function to create the layout with animation controls."""
+    """
+    Build the Plotly layout with animation playback controls.
+
+    Parameters
+    ----------
+    algo_name : str
+        Algorithm name shown in the plot title.
+    frames : list of plotly.graph_objs.Frame
+        Animation frames, used to build the slider steps.
+
+    Returns
+    -------
+    plotly.graph_objs.Layout
+        Layout configured with play/pause/restart buttons and a slider.
+    """
     return go.Layout(
         title=f"Community Evolution ({algo_name})",
         xaxis=dict(title="X coordinate", showgrid=False, zeroline=False),

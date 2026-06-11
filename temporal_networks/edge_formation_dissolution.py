@@ -24,6 +24,12 @@ from ._gap_utilities import (
     validate_and_setup_graphs
 )
 
+__all__ = [
+    "edge_formation",
+    "edge_dissolution",
+    "plot_edge_dynamics",
+]
+
 
 # ============================================================================
 # MAIN FUNCTIONS
@@ -94,8 +100,14 @@ def compute_edge_dynamics(graphs: List,
 
             # Compute percentages (relative to previous graph edge count)
             prev_edge_count = len(prev_edges)
-            formed_percent = (num_formed / prev_edge_count * 100) if prev_edge_count > 0 else 0
-            dissolved_percent = (num_dissolved / prev_edge_count * 100) if prev_edge_count > 0 else 0
+            formed_percent = (
+                (num_formed / prev_edge_count * 100)
+                if prev_edge_count > 0 else 0
+            )
+            dissolved_percent = (
+                (num_dissolved / prev_edge_count * 100)
+                if prev_edge_count > 0 else 0
+            )
 
             dynamics_data.append({
                 "Graph": graph_labels[i],
@@ -118,7 +130,7 @@ def plot_edge_dynamics(dynamics_df: pd.DataFrame,
                       gap_info: Dict,
                       metric: str = "Edges_Formed",
                       output_file: Optional[str] = None,
-                      save_path: str = "plots/") -> None:
+                      save_path: Optional[str] = None) -> None:
     """
     Plot edge formation/dissolution dynamics over time with gap handling.
 
@@ -140,7 +152,7 @@ def plot_edge_dynamics(dynamics_df: pd.DataFrame,
         Filename for saving the plot. If None, uses metric name.
         (default: None → "{metric}.pdf")
     save_path : str, optional
-        Directory for saving plots (default: "plots/")
+        Directory for saving plots. If None (default), no file is saved.
 
     Returns
     -------
@@ -158,7 +170,8 @@ def plot_edge_dynamics(dynamics_df: pd.DataFrame,
         raise ValueError(f"Metric '{metric}' not found in dataframe. "
                         f"Available: {list(dynamics_df.columns)}")
 
-    os.makedirs(save_path, exist_ok=True)
+    if save_path is not None:
+        os.makedirs(save_path, exist_ok=True)
 
     try:
         fig, ax = plt.subplots(figsize=(14, 7), dpi=100)
@@ -168,8 +181,10 @@ def plot_edge_dynamics(dynamics_df: pd.DataFrame,
         plot_df = dynamics_df.set_index("Graph").reindex(graph_labels[1:]).reset_index()
         y_values = plot_df[metric].values
 
-        # Adjust gap_segments for the fact that dynamics_df has 1 fewer point than graph_labels
-        # Actually, it's better to keep graph_labels and put None/NaN for the first point
+        # Adjust gap_segments for the fact that dynamics_df has 1 fewer
+        # point than graph_labels
+        # Actually, it's better to keep graph_labels and put None/NaN
+        # for the first point
         y_values_full = np.concatenate([[np.nan], y_values])
 
         # Use gap-aware plotting
@@ -180,7 +195,8 @@ def plot_edge_dynamics(dynamics_df: pd.DataFrame,
 
         ax.set_xlabel("Year - Month", fontsize=14, fontweight='bold')
         ax.set_ylabel("Number of Edges", fontsize=14, fontweight='bold')
-        ax.set_title(f"{metric.replace('_', ' ')} Over Time", fontsize=16, fontweight='bold')
+        ax.set_title(f"{metric.replace('_', ' ')} Over Time",
+                     fontsize=16, fontweight='bold')
 
         # Format y-axis
         ax.yaxis.set_major_formatter(plt.FuncFormatter(format_large_numbers))
@@ -191,14 +207,14 @@ def plot_edge_dynamics(dynamics_df: pd.DataFrame,
         plt.tight_layout()
 
         # Save figure
-        if output_file is None:
-            output_file = f"{metric}.pdf"
+        if save_path is not None:
+            if output_file is None:
+                output_file = f"{metric}.pdf"
 
-        plot_path = os.path.join(save_path, output_file)
-        fig.savefig(plot_path, dpi=300, bbox_inches='tight')
+            plot_path = os.path.join(save_path, output_file)
+            fig.savefig(plot_path, dpi=300, bbox_inches='tight')
+            print(f"✓ Plot saved: {plot_path}")
         plt.close(fig)
-
-        print(f"✓ Plot saved: {plot_path}")
 
     except Exception as e:
         print(f"Error creating plot: {e}")
@@ -206,7 +222,7 @@ def plot_edge_dynamics(dynamics_df: pd.DataFrame,
 
 def edge_formation(graphs: List,
                   graph_labels: Optional[List[str]] = None,
-                  save_path: str = "plots/",
+                  save_path: Optional[str] = None,
                   report_gaps: bool = True) -> pd.DataFrame:
     """
     Analyze and plot edge formation over time.
@@ -223,7 +239,7 @@ def edge_formation(graphs: List,
         Labels for each graph (e.g., ["2019-01", "2019-02", ...])
         If not provided, defaults to "Graph 1", "Graph 2", etc.
     save_path : str, optional
-        Directory for saving plots (default: "plots/")
+        Directory for saving plots. If None (default), no file is saved.
     report_gaps : bool, optional
         If True (default), analyzes and reports temporal gaps to the console
 
@@ -255,7 +271,7 @@ def edge_formation(graphs: List,
 
 def edge_dissolution(graphs: List,
                     graph_labels: Optional[List[str]] = None,
-                    save_path: str = "plots/",
+                    save_path: Optional[str] = None,
                     report_gaps: bool = True) -> pd.DataFrame:
     """
     Analyze and plot edge dissolution over time.
@@ -272,7 +288,7 @@ def edge_dissolution(graphs: List,
         Labels for each graph (e.g., ["2019-01", "2019-02", ...])
         If not provided, defaults to "Graph 1", "Graph 2", etc.
     save_path : str, optional
-        Directory for saving plots (default: "plots/")
+        Directory for saving plots. If None (default), no file is saved.
     report_gaps : bool, optional
         If True (default), analyzes and reports temporal gaps to the console
 

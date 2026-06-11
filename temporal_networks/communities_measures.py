@@ -31,7 +31,7 @@ from ._gap_utilities import (
 
 def communities_measures(graphs: List,
                         graph_labels: Optional[List[str]] = None,
-                        save_path: str = "plots/",
+                        save_path: Optional[str] = None,
                         visualisation: bool = True,
                         report_gaps: bool = True) -> dict:
     """
@@ -53,7 +53,8 @@ def communities_measures(graphs: List,
         Supports multiple formats: YYYY-MM, YYYY-MM-DD, YYYY-W##, YYYY-Q#, YYYY
         If not provided, defaults to "Graph 1", "Graph 2", etc.
     save_path : str, optional
-        Directory path for saving results and visualizations (default: "plots/")
+        Directory path for saving results and visualizations. If None
+        (default), no files are saved.
     visualisation : bool, optional
         If True (default), generates plots for community evolution
     report_gaps : bool, optional
@@ -102,7 +103,8 @@ def communities_measures(graphs: List,
         print_gap_report(graph_labels, gap_info)
 
     # Create output directory
-    os.makedirs(save_path, exist_ok=True)
+    if save_path is not None:
+        os.makedirs(save_path, exist_ok=True)
 
     # Define community detection algorithms
     # Note: Some require undirected graphs, so we convert as needed
@@ -154,13 +156,15 @@ def communities_measures(graphs: List,
                 # Detect communities using the specified algorithm
                 try:
                     if algo_func in {"community_walktrap", "community_fastgreedy"}:
-                        partition = getattr(g, algo_func)(weights=weights).as_clustering()
+                        partition = getattr(
+                            g, algo_func)(weights=weights).as_clustering()
                     elif algo_func == "community_infomap":
                         partition = getattr(g, algo_func)(edge_weights=weights)
                     else:
                         partition = getattr(g, algo_func)(weights=weights)
                 except Exception as e:
-                    print(f"  Warning: Algorithm {algo_name} failed on graph {graph_label}: {e}")
+                    print(f"  Warning: Algorithm {algo_name} failed on "
+                          f"graph {graph_label}: {e}")
                     continue
 
                 # Store community assignments
@@ -176,36 +180,48 @@ def communities_measures(graphs: List,
                 num_communities_list.append({
                     "Graph": graph_label,
                     "Number_of_Communities": len(partition),
-                    "Max_Community_Size": max(len(c) for c in partition) if partition else 0,
-                    "Min_Community_Size": min(len(c) for c in partition) if partition else 0,
-                    "Mean_Community_Size": sum(len(c) for c in partition) / len(partition) if partition else 0,
+                    "Max_Community_Size": (
+                        max(len(c) for c in partition) if partition else 0
+                    ),
+                    "Min_Community_Size": (
+                        min(len(c) for c in partition) if partition else 0
+                    ),
+                    "Mean_Community_Size": (
+                        sum(len(c) for c in partition) / len(partition)
+                        if partition else 0
+                    ),
                 })
 
             except Exception as e:
-                print(f"  Error processing graph {graph_label} with algorithm {algo_name}: {e}")
+                print(f"  Error processing graph {graph_label} with "
+                      f"algorithm {algo_name}: {e}")
                 continue
 
         # Convert to DataFrame and save
         if all_communities:
             communities_df = pd.DataFrame(all_communities)
-            csv_filename = os.path.join(save_path, f"communities_{algo_name}_assignments.csv")
-            communities_df.to_csv(csv_filename, index=False)
-            print(f"  ✓ Community assignments saved: {csv_filename}")
+            if save_path is not None:
+                csv_filename = os.path.join(
+                    save_path, f"communities_{algo_name}_assignments.csv")
+                communities_df.to_csv(csv_filename, index=False)
+                print(f"  ✓ Community assignments saved: {csv_filename}")
             results[algo_name] = communities_df
         else:
             print(f"  Warning: No communities detected for {algo_name}")
             continue
 
         # Save statistics
-        if num_communities_list:
+        if num_communities_list and save_path is not None:
             stats_df = pd.DataFrame(num_communities_list)
-            stats_csv_filename = os.path.join(save_path, f"communities_{algo_name}_stats.csv")
+            stats_csv_filename = os.path.join(
+                save_path, f"communities_{algo_name}_stats.csv")
             stats_df.to_csv(stats_csv_filename, index=False)
             print(f"  ✓ Community statistics saved: {stats_csv_filename}")
 
             # Generate visualizations with gap handling
             if visualisation:
-                _plot_community_stats(stats_df, algo_name, graph_labels, gap_info, save_path)
+                _plot_community_stats(stats_df, algo_name, graph_labels,
+                                      gap_info, save_path)
 
     return results
 
@@ -263,7 +279,8 @@ def _plot_community_stats(stats_df: pd.DataFrame, algo_name: str,
             plt.tight_layout()
 
             # Save plot
-            plot_filename = os.path.join(save_path, f"communities_{algo_name}_{prop_col}.pdf")
+            plot_filename = os.path.join(
+                save_path, f"communities_{algo_name}_{prop_col}.pdf")
             fig.savefig(plot_filename, dpi=300, bbox_inches='tight')
             plt.close(fig)
             print(f"  ✓ Plot saved: {plot_filename}")

@@ -15,7 +15,9 @@ from typing import List, Tuple, Optional, Dict
 # VALIDATION UTILITIES
 # ============================================================================
 
-def validate_and_setup_graphs(graphs: List, graph_labels: Optional[List[str]] = None, min_length: int = 1) -> List[str]:
+def validate_and_setup_graphs(graphs: List,
+                              graph_labels: Optional[List[str]] = None,
+                              min_length: int = 1) -> List[str]:
     """
     Validate the graphs list and setup/validate graph labels.
 
@@ -42,7 +44,9 @@ def validate_and_setup_graphs(graphs: List, graph_labels: Optional[List[str]] = 
     if graph_labels is None:
         graph_labels = [f"Graph {i+1}" for i in range(len(graphs))]
     elif len(graph_labels) != len(graphs):
-        raise ValueError(f"graph_labels length ({len(graph_labels)}) must match graphs length ({len(graphs)})")
+        raise ValueError(
+            f"graph_labels length ({len(graph_labels)}) must match "
+            f"graphs length ({len(graphs)})")
 
     return graph_labels
 
@@ -155,7 +159,9 @@ def calculate_time_difference(date1: datetime, date2: datetime,
     elif unit == "years":
         return (date2.year - date1.year) + (date2.month - date1.month) / 12.0
     else:
-        raise ValueError(f"Unknown unit: {unit}. Use 'days', 'weeks', 'months', or 'years'")
+        raise ValueError(
+            f"Unknown unit: {unit}. Use 'days', 'weeks', 'months', "
+            f"or 'years'")
 
 
 # ============================================================================
@@ -326,7 +332,9 @@ def _generate_gap_report_text(graph_labels: List[str], gaps: List[Dict],
 
     lines.append("Impact on Temporal Visualization:")
     if has_gaps:
-        lines.append("  ✓ Plots show SEPARATE LINE SEGMENTS for each continuous period")
+        lines.append(
+            "  ✓ Plots show SEPARATE LINE SEGMENTS for each "
+            "continuous period")
         lines.append("  ✓ No lines are drawn across gaps")
         lines.append("  ✓ Visual breaks indicate where data is missing")
         lines.append("\nPossible causes for gaps:")
@@ -389,7 +397,8 @@ def create_gap_dataframe(graph_labels: List[str], gap_info: Dict) -> pd.DataFram
         - start_label, end_label, gap_size
     """
     if not gap_info.get("gaps"):
-        return pd.DataFrame(columns=["gap_number", "start_label", "end_label", "gap_size"])
+        return pd.DataFrame(
+            columns=["gap_number", "start_label", "end_label", "gap_size"])
 
     gap_rows = []
     for i, gap in enumerate(gap_info["gaps"], 1):
@@ -435,8 +444,8 @@ def format_large_numbers(x: float, pos: int) -> str:
         return f'{x:.0f}'
 
 
-def plot_with_gap_handling(ax, graph_labels: List[str], y_values, gap_segments: List[Tuple],
-                           **kwargs):
+def plot_with_gap_handling(ax, graph_labels: List[str], y_values,
+                           gap_segments: List[Tuple], **kwargs) -> None:
     """
     Plot data with proper handling of temporal gaps.
 
@@ -468,7 +477,8 @@ def plot_with_gap_handling(ax, graph_labels: List[str], y_values, gap_segments: 
     Examples
     --------
     >>> import matplotlib.pyplot as plt
-    >>> from temporal_networks._gap_utilities import plot_with_gap_handling, detect_temporal_gaps
+    >>> from temporal_networks._gap_utilities import (
+    ...     plot_with_gap_handling, detect_temporal_gaps)
     >>>
     >>> labels = ["2024-03", "2024-04", "2024-05", "2024-11", "2024-12"]
     >>> y_values = [0.5, 0.6, 0.7, 0.8, 0.9]
