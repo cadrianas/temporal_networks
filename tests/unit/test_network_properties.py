@@ -182,7 +182,7 @@ class TestNetworkProperties(unittest.TestCase):
         mock_graph.components.return_value = MagicMock(__len__=lambda self: 2)
         mock_graph.diameter.side_effect = Exception("Diameter Error")
         mock_graph.girth.side_effect = Exception("Girth Error")
-        mock_graph.shortest_paths.side_effect = Exception("Shortest Paths Error")
+        mock_graph.distances.side_effect = Exception("Distances Error")
         mock_graph.degree.return_value = [1, 2] # np.mean will be 1.5
         mock_graph.reciprocity.return_value = 0.5
         mock_graph.transitivity_undirected.side_effect = Exception("Transitivity Error")
