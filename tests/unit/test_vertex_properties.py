@@ -8,9 +8,9 @@ from temporal_networks.vertex_properties import vertex_properties
 class TestVertexProperties(unittest.TestCase):
     def setUp(self):
         # Create graphs for testing
-        self.g1 = ig.Graph.Barabasi(n=50, m=2, directed=False, random_seed=42)
-        self.g2 = ig.Graph.Barabasi(n=50, m=2, directed=False, random_seed=43)
-        self.g3 = ig.Graph.Barabasi(n=50, m=2, directed=False, random_seed=44)
+        self.g1 = ig.Graph.Barabasi(n=50, m=2, directed=False)
+        self.g2 = ig.Graph.Barabasi(n=50, m=2, directed=False)
+        self.g3 = ig.Graph.Barabasi(n=50, m=2, directed=False)
 
         # Add node names
         self.g1.vs["name"] = [f"Node_{i}" for i in range(50)]

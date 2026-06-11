@@ -179,7 +179,7 @@ def create_test_graphs_small(num_graphs: int = 3,
         labels.append(label)
         
         # Create small Barabasi-Albert graph
-        g = ig.Graph.Barabasi(num_nodes, m=2, random_seed=i)
+        g = ig.Graph.Barabasi(num_nodes, m=2)
         g.vs["name"] = node_names
         g["filename"] = label
         

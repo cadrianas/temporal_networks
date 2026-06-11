@@ -14,7 +14,7 @@ class TestPlotCommunityEvolution(unittest.TestCase):
 
     def test_plot_community_evolution_success(self):
         # Create a small list of graphs
-        graphs = [ig.Graph.Barabasi(n=10, m=2, random_seed=42) for _ in range(3)]
+        graphs = [ig.Graph.Barabasi(n=10, m=2) for _ in range(3)]
 
         # Test that the function does not raise any exceptions
         try:
@@ -30,7 +30,7 @@ class TestPlotCommunityEvolution(unittest.TestCase):
             plot_community_evolution([], community_algorithm="louvain", output_file=self.output_file)
 
     def test_plot_community_evolution_invalid_algorithm(self):
-        graphs = [ig.Graph.Barabasi(n=10, m=2, random_seed=42) for _ in range(3)]
+        graphs = [ig.Graph.Barabasi(n=10, m=2) for _ in range(3)]
         with self.assertRaises(ValueError):
             plot_community_evolution(graphs, community_algorithm="invalid_algo", output_file=self.output_file)
 
