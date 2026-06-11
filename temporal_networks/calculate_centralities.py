@@ -43,7 +43,8 @@ def calculate_centralities(graphs: List,
     eccentricity, clustering coefficient, and HITS scores.
 
     **KEY FEATURE:** Automatically detects and reports temporal gaps in your data.
-    Optionally visualizes how node centralities evolve over time with proper gap handling.
+    Optionally visualizes how node centralities evolve over time with proper
+    gap handling.
 
     Parameters
     ----------
@@ -133,7 +134,10 @@ def calculate_centralities(graphs: List,
             node_labels = graph.vs["label"]
         else:
             node_labels = [f"Node_{i}" for i in range(n)]
-            print(f"Warning: Graph {graph_name} has no 'name' or 'label' attribute. Using node indices.")
+            print(
+                f"Warning: Graph {graph_name} has no 'name' or 'label' attribute. "
+                "Using node indices."
+            )
 
         # Compute centrality measures
         try:
@@ -176,14 +180,19 @@ def calculate_centralities(graphs: List,
         except Exception:
             clustering_coefficient = [None] * n
 
-        try:
-            authority_score = graph.authority_score()
-        except Exception:
-            authority_score = [None] * n
+        # HITS hub/authority scores are only meaningful for directed graphs
+        if graph.is_directed():
+            try:
+                authority_score = graph.authority_score()
+            except Exception:
+                authority_score = [None] * n
 
-        try:
-            hub_score = graph.hub_score()
-        except Exception:
+            try:
+                hub_score = graph.hub_score()
+            except Exception:
+                hub_score = [None] * n
+        else:
+            authority_score = [None] * n
             hub_score = [None] * n
 
         # For each node, store all centrality measures
@@ -218,7 +227,9 @@ def calculate_centralities(graphs: List,
 
     # Optional: Visualize centrality evolution over time
     if visualize_evolution:
-        _visualize_centrality_evolution(centralities_df, graph_labels, gap_info, save_path)
+        _visualize_centrality_evolution(
+            centralities_df, graph_labels, gap_info, save_path
+        )
 
     return centralities_df
 
@@ -248,9 +259,13 @@ def _visualize_centrality_evolution(centralities_df: pd.DataFrame,
 
         try:
             # Get average centrality for each graph
-            avg_by_graph = centralities_df.groupby("Graph")[measure].mean().reset_index()
+            avg_by_graph = (
+                centralities_df.groupby("Graph")[measure].mean().reset_index()
+            )
             # Ensure correct order based on graph_labels
-            avg_by_graph = avg_by_graph.set_index("Graph").reindex(graph_labels).reset_index()
+            avg_by_graph = (
+                avg_by_graph.set_index("Graph").reindex(graph_labels).reset_index()
+            )
             avg_values = avg_by_graph[measure].values
 
             # Create plot
@@ -263,14 +278,18 @@ def _visualize_centrality_evolution(centralities_df: pd.DataFrame,
                                   linewidth=2, color='#1f77b4')
 
             ax.set_xlabel("Year - Month", fontsize=12, fontweight='bold')
-            ax.set_ylabel(f"Average {measure.replace('_', ' ')}", fontsize=12, fontweight='bold')
-            ax.set_title(f"Temporal Evolution: {measure.replace('_', ' ')}", fontsize=14, fontweight='bold')
+            ax.set_ylabel(f"Average {measure.replace('_', ' ')}",
+                          fontsize=12, fontweight='bold')
+            ax.set_title(f"Temporal Evolution: {measure.replace('_', ' ')}",
+                         fontsize=14, fontweight='bold')
 
             plt.grid(True, alpha=0.3)
             plt.tight_layout()
 
             # Save plot
-            plot_filename = os.path.join(save_path, f"centrality_evolution_{measure}.pdf")
+            plot_filename = os.path.join(
+                save_path, f"centrality_evolution_{measure}.pdf"
+            )
             fig.savefig(plot_filename, dpi=300, bbox_inches='tight')
             plt.close(fig)
             print(f"✓ Centrality evolution plot saved: {plot_filename}")

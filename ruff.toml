@@ -1,0 +1,5 @@
+line-length = 88
+exclude = ["tests", "examples", "benchmarks"]
+
+[lint]
+select = ["E", "F", "W"]
