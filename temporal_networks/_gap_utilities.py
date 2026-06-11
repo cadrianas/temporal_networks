@@ -197,15 +197,19 @@ def detect_temporal_gaps(graph_labels: List[str],
     -------
     dict
         Dictionary with keys:
+
         - "has_gaps" (bool): Whether gaps were detected
         - "num_gaps" (int): Number of gaps found
         - "gaps" (list): List of gap information dicts with:
+
           - "start_idx" (int): Index of last point before gap
           - "end_idx" (int): Index of first point after gap
           - "start_label" (str): Label before gap
           - "end_label" (str): Label after gap
           - "gap_size" (float): Size of gap in specified units
-        - "segments" (list): List of (start_idx, end_idx) tuples for continuous segments
+
+        - "segments" (list): List of (start_idx, end_idx) tuples for
+          continuous segments
         - "report" (str): Human-readable gap report
 
     Examples

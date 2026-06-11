@@ -86,12 +86,14 @@ def vertex_properties(graphs: List,
     Notes
     -----
     Properties computed for the node:
+
     - Centrality: degree, closeness, betweenness, eigenvector, PageRank,
       harmonic, eccentricity
     - Local structure: clustering coefficient, constraint
     - Importance: authority score, hub score, coreness
 
     Temporal Gaps:
+
     - Automatically analyzes temporal labels for gaps
     - Reports if data has missing periods
     - Vertex property plots preserve gaps as visual breaks
