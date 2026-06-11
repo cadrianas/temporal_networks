@@ -134,7 +134,9 @@ def network_properties(graphs: List,
                 girth = np.nan
 
             try:
-                avg_path_length = np.mean(graph.distances())
+                dist_matrix = np.array(graph.distances(), dtype=float)
+                dist_matrix[np.isinf(dist_matrix)] = np.nan
+                avg_path_length = np.nanmean(dist_matrix)
             except Exception:
                 avg_path_length = np.nan
 
