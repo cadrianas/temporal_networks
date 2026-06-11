@@ -155,9 +155,13 @@ def calculate_centralities(graphs: List,
         except Exception:
             betweenness_centrality = [None] * n
 
-        try:
-            eigenvector_centrality = graph.eigenvector_centrality()
-        except Exception:
+        # Eigenvector centrality is undefined for graphs with no edges
+        if graph.ecount() > 0:
+            try:
+                eigenvector_centrality = graph.eigenvector_centrality()
+            except Exception:
+                eigenvector_centrality = [None] * n
+        else:
             eigenvector_centrality = [None] * n
 
         try:

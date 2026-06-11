@@ -206,7 +206,8 @@ class TestNetworkProperties(unittest.TestCase):
         self.assertEqual(len(df), 1)
         self.assertTrue(np.isnan(df.loc[0, "Diameter"]))
         self.assertTrue(np.isnan(df.loc[0, "Girth"]))
-        self.assertTrue(np.isnan(df.loc[0, "Average Path Length"]))
+        val = df.loc[0, "Average Path Length"]
+        self.assertTrue(np.isnan(float(val)))
         self.assertTrue(np.isnan(df.loc[0, "Transitivity"]))
 
 if __name__ == '__main__':

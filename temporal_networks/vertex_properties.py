@@ -235,14 +235,20 @@ def _compute_vertex_properties(graphs: List, node_name: str,
         except Exception:
             properties["Coreness"].append(None)
 
-        try:
-            properties["Authority_Score"].append(graph.authority_score()[node_index])
-        except Exception:
-            properties["Authority_Score"].append(None)
+        # HITS hub/authority scores are only meaningful for directed graphs
+        if graph.is_directed():
+            try:
+                properties["Authority_Score"].append(
+                    graph.authority_score()[node_index])
+            except Exception:
+                properties["Authority_Score"].append(None)
 
-        try:
-            properties["Hub_Score"].append(graph.hub_score()[node_index])
-        except Exception:
+            try:
+                properties["Hub_Score"].append(graph.hub_score()[node_index])
+            except Exception:
+                properties["Hub_Score"].append(None)
+        else:
+            properties["Authority_Score"].append(None)
             properties["Hub_Score"].append(None)
 
     # Convert to DataFrame
