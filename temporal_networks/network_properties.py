@@ -73,9 +73,11 @@ def network_properties(graphs: List,
     Examples
     --------
     >>> import igraph as ig
+    >>> import random
     >>> from temporal_networks import network_properties
     >>>
     >>> # Continuous data (no gaps)
+    >>> random.seed(42)
     >>> graphs = [ig.Graph.Barabasi(n=100, m=2) for _ in range(12)]
     >>> labels = [f"2024-{i+1:02d}" for i in range(12)]
     >>> props = network_properties(graphs, graph_labels=labels)
@@ -132,7 +134,7 @@ def network_properties(graphs: List,
                 girth = np.nan
 
             try:
-                avg_path_length = np.mean(graph.shortest_paths())
+                avg_path_length = np.mean(graph.distances())
             except Exception:
                 avg_path_length = np.nan
 
