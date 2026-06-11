@@ -12,11 +12,11 @@ gap detection.
 network structure and properties change over time. Unlike general-purpose 
 graph libraries such as [`networkx`](https://networkx.org/) or 
 [`igraph`](https://igraph.org/), it treats the temporal dimension as a 
-first-class feature, with native support for irregular time series and 
+feature, with native support for irregular time series and 
 missing data periods. Compared to other temporal network packages such as 
 [`teneto`](https://teneto.readthedocs.io/) and 
 [`dynetx`](https://dynetx.readthedocs.io/), `temporal_networks` focuses 
-specifically on gap-aware analysis and visualization -- automatically 
+specifically on gap-aware analysis and visualization, automatically 
 detecting and correctly representing seasonal closures, maintenance windows, 
 or crisis-driven interruptions rather than drawing misleading continuous 
 lines across missing periods.
