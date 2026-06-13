@@ -31,7 +31,7 @@ from ._gap_utilities import (
 
 def calculate_centralities(graphs: List,
                           graph_labels: Optional[List[str]] = None,
-                          filename: Optional[str] = "centralities_results.csv",
+                          filename: Optional[str] = None,
                           report_gaps: bool = True,
                           visualize_evolution: bool = False,
                           save_path: str = "plots/") -> pd.DataFrame:
@@ -55,8 +55,8 @@ def calculate_centralities(graphs: List,
         Supports multiple formats: YYYY-MM, YYYY-MM-DD, YYYY-W##, YYYY-Q#, YYYY
         If not provided, defaults to "Graph 1", "Graph 2", etc.
     filename : str, optional
-        CSV filename for saving results (default: "centralities_results.csv")
-        If None, results are not saved to file
+        CSV filename for saving results. If None (default), results are not
+        saved to file (no files are written unless a filename is given).
     report_gaps : bool, optional
         If True (default), analyzes and reports temporal gaps to the console
     visualize_evolution : bool, optional
@@ -281,7 +281,7 @@ def _visualize_centrality_evolution(centralities_df: pd.DataFrame,
                                   marker='o', linestyle='-', markersize=8,
                                   linewidth=2, color='#1f77b4')
 
-            ax.set_xlabel("Year - Month", fontsize=12, fontweight='bold')
+            ax.set_xlabel("Time", fontsize=12, fontweight='bold')
             ax.set_ylabel(f"Average {measure.replace('_', ' ')}",
                           fontsize=12, fontweight='bold')
             ax.set_title(f"Temporal Evolution: {measure.replace('_', ' ')}",

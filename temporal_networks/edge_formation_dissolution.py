@@ -194,7 +194,7 @@ def plot_edge_dynamics(dynamics_df: pd.DataFrame,
                               marker='o', linestyle='-', markersize=12,
                               linewidth=3, color='#1f77b4')
 
-        ax.set_xlabel("Year - Month", fontsize=14, fontweight='bold')
+        ax.set_xlabel("Time", fontsize=14, fontweight='bold')
         ax.set_ylabel("Number of Edges", fontsize=14, fontweight='bold')
         ax.set_title(f"{metric.replace('_', ' ')} Over Time",
                      fontsize=16, fontweight='bold')

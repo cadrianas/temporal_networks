@@ -314,7 +314,7 @@ def _plot_vertex_properties(properties_df: pd.DataFrame, node_name: str,
                                   marker='o', linestyle='-', markersize=10,
                                   linewidth=2, color='#1f77b4')
 
-            ax.set_xlabel("Year - Month", fontsize=12, fontweight='bold')
+            ax.set_xlabel("Time", fontsize=12, fontweight='bold')
             ax.set_ylabel(prop.replace('_', ' '), fontsize=12, fontweight='bold')
             ax.set_title(f"{prop.replace('_', ' ')} for {node_name}",
                          fontsize=14, fontweight='bold')
@@ -356,7 +356,7 @@ def _plot_vertex_properties(properties_df: pd.DataFrame, node_name: str,
                            label=prop.replace('_', ' ') if i == 0 else "",
                            linewidth=2)
 
-        ax.set_xlabel("Year - Month", fontsize=12, fontweight='bold')
+        ax.set_xlabel("Time", fontsize=12, fontweight='bold')
         ax.set_ylabel("Normalized Value", fontsize=12, fontweight='bold')
         ax.set_title(f"All Properties for {node_name}", fontsize=14, fontweight='bold')
         ax.set_xticks(range(len(graph_labels)))
