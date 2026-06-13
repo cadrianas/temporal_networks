@@ -36,6 +36,48 @@ __all__ = [
 # MAIN FUNCTIONS
 # ============================================================================
 
+def _edge_identity_set(graph) -> set:
+    """
+    Return a graph's edges as a set of identity keys.
+
+    Edges are keyed by vertex ``name`` (or ``label``) when those attributes are
+    present, so edges are compared by node identity across snapshots rather than
+    by position. When no such attribute exists, vertex indices are used as a
+    fallback (which assumes consistent node ordering across snapshots).
+    Undirected edges are normalised so that ``(u, v)`` and ``(v, u)`` compare
+    equal.
+
+    Parameters
+    ----------
+    graph : igraph.Graph
+        Graph whose edges to extract.
+
+    Returns
+    -------
+    set
+        Set of ``(source_key, target_key)`` tuples.
+    """
+    attrs = graph.vs.attributes()
+    if "name" in attrs:
+        keys = graph.vs["name"]
+    elif "label" in attrs:
+        keys = graph.vs["label"]
+    else:
+        keys = None
+
+    directed = graph.is_directed()
+    edge_set = set()
+    for source, target in graph.get_edgelist():
+        if keys is not None:
+            u, v = keys[source], keys[target]
+        else:
+            u, v = source, target
+        if not directed:
+            u, v = tuple(sorted((u, v)))
+        edge_set.add((u, v))
+    return edge_set
+
+
 def compute_edge_dynamics(graphs: List,
                          graph_labels: Optional[List[str]] = None) -> pd.DataFrame:
     """
@@ -75,6 +117,12 @@ def compute_edge_dynamics(graphs: List,
     -----
     Comparison starts from the second graph. The first row corresponds to
     differences between Graph 0 and Graph 1.
+
+    Edges are matched by node ``name`` (or ``label``) when those vertex
+    attributes are present, so snapshots whose nodes are stored in a different
+    order are still compared correctly. If no such attribute exists, vertex
+    indices are used, which assumes a consistent node ordering across snapshots.
+    Undirected edges are treated as unordered pairs.
     """
 
     # Validate inputs and set up labels
@@ -88,9 +136,10 @@ def compute_edge_dynamics(graphs: List,
         g_curr = graphs[i]
 
         try:
-            # Get edge sets (as tuples for set operations)
-            prev_edges = set(g_prev.get_edgelist())
-            curr_edges = set(g_curr.get_edgelist())
+            # Edge sets keyed by node identity (name/label) when available, so
+            # snapshots with different node orderings are compared correctly.
+            prev_edges = _edge_identity_set(g_prev)
+            curr_edges = _edge_identity_set(g_curr)
 
             # Compute edges formed and dissolved
             edges_formed = curr_edges - prev_edges

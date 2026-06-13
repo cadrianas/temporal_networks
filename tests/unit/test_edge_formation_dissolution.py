@@ -108,5 +108,44 @@ class TestEdgeFormationDissolution(unittest.TestCase):
         with self.assertRaises(ValueError):
             compute_edge_dynamics(graphs)
 
+
+class TestEdgeDynamicsNodeIdentity(unittest.TestCase):
+    """Edges must be matched by node identity (name), not vertex index."""
+
+    def test_same_edges_different_node_order(self):
+        """Same edge A-B in both snapshots, but nodes stored in a different
+        order, must yield zero formed/dissolved (regression for bug #4)."""
+        g0 = ig.Graph(n=3, edges=[(0, 1)])      # edge between A and B
+        g0.vs["name"] = ["A", "B", "C"]
+        g1 = ig.Graph(n=3, edges=[(1, 2)])      # also A-B, but A,B at idx 1,2
+        g1.vs["name"] = ["C", "A", "B"]
+
+        df = compute_edge_dynamics([g0, g1], graph_labels=["t0", "t1"])
+        row = df.iloc[0]
+        # Index-based comparison would report (0,1) vs (1,2) => 1 formed, 1 dissolved
+        self.assertEqual(row["Edges_Formed"], 0)
+        self.assertEqual(row["Edges_Dissolved"], 0)
+
+    def test_named_edge_change_detected(self):
+        """A genuine change in named edges is still detected."""
+        g0 = ig.Graph(n=3, edges=[(0, 1)])      # A-B
+        g0.vs["name"] = ["A", "B", "C"]
+        g1 = ig.Graph(n=3, edges=[(1, 2)])      # B-C
+        g1.vs["name"] = ["A", "B", "C"]
+
+        df = compute_edge_dynamics([g0, g1], graph_labels=["t0", "t1"])
+        row = df.iloc[0]
+        self.assertEqual(row["Edges_Formed"], 1)     # B-C formed
+        self.assertEqual(row["Edges_Dissolved"], 1)  # A-B dissolved
+
+    def test_unnamed_graphs_fall_back_to_indices(self):
+        """Without name/label attributes, index-based comparison is preserved."""
+        g0 = ig.Graph(n=4, edges=[(0, 1), (1, 2)])
+        g1 = ig.Graph(n=4, edges=[(0, 1), (2, 3)])
+        df = compute_edge_dynamics([g0, g1], graph_labels=["t0", "t1"])
+        row = df.iloc[0]
+        self.assertEqual(row["Edges_Formed"], 1)
+        self.assertEqual(row["Edges_Dissolved"], 1)
+
 if __name__ == '__main__':
     unittest.main()
