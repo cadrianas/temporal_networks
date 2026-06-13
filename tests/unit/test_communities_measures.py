@@ -37,5 +37,23 @@ class TestCommunitiesMeasuresException(unittest.TestCase):
                 self.assertIn("louvain", results)
                 self.assertTrue(len(results) > 0)
 
+class TestCommunitiesMeasuresDirected(unittest.TestCase):
+    """Regression: modularity-based algorithms must be converted to undirected,
+    not silently dropped, when given directed graphs (bug #2)."""
+
+    def test_louvain_and_leiden_run_on_directed_input(self):
+        graphs = [ig.Graph.Barabasi(n=30, m=3, directed=True) for _ in range(2)]
+        labels = ["2024-01", "2024-02"]
+        f = io.StringIO()
+        with contextlib.redirect_stdout(f):
+            results = communities_measures(
+                graphs=graphs, graph_labels=labels,
+                save_path=None, visualisation=False, report_gaps=False)
+        # Previously these produced "input graph must be undirected" and were
+        # swallowed, so they were missing from the results dict.
+        self.assertIn("louvain", results)
+        self.assertIn("leiden", results)
+
+
 if __name__ == '__main__':
     unittest.main()

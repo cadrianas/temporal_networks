@@ -55,14 +55,20 @@ def _detect_communities(graphs: List,
     for graph_idx, graph in enumerate(graphs):
         try:
             g = graph.copy()
+            # Modularity-based algorithms only operate on undirected graphs.
             if g.is_directed() and community_algorithm.lower() in ["walktrap",
                                                                     "fast_greedy",
                                                                     "label_prop",
-                                                                    "spinglass"]:
+                                                                    "spinglass",
+                                                                    "louvain",
+                                                                    "leiden"]:
                 g = g.as_undirected()
 
             try:
-                if community_algorithm.lower() in ["walktrap", "fast_greedy"]:
+                # walktrap, fast_greedy and edge_betweenness return a
+                # VertexDendrogram that must be cut into a flat clustering.
+                if community_algorithm.lower() in ["walktrap", "fast_greedy",
+                                                   "edge_betweenness"]:
                     partition = algo_func(g).as_clustering()
                 else:
                     partition = algo_func(g)

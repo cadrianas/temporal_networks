@@ -168,9 +168,52 @@ def calculate_time_difference(date1: datetime, date2: datetime,
 # GAP DETECTION
 # ============================================================================
 
+def _infer_unit_and_threshold(graph_labels: List[str]) -> Tuple[str, int]:
+    """
+    Infer the natural time unit and gap threshold from the label format.
+
+    Inspects the first parseable label and returns the ``(unit, gap_threshold)``
+    pair for which a regularly spaced series of that format reports *no* gaps
+    (a gap is only flagged when a period is skipped):
+
+    - ``YYYY-W##`` (weekly)    -> ``("weeks", 1)``
+    - ``YYYY-Q#``  (quarterly) -> ``("months", 3)`` (one quarter is 3 months)
+    - ``YYYY-MM-DD`` (daily)   -> ``("days", 1)``
+    - ``YYYY-MM`` (monthly)    -> ``("months", 1)``
+    - ``YYYY`` (yearly)        -> ``("years", 1)``
+
+    Falls back to ``("months", 1)`` if no label can be parsed.
+
+    Parameters
+    ----------
+    graph_labels : list of str
+        Temporal labels to inspect.
+
+    Returns
+    -------
+    tuple of (str, int)
+        The inferred ``(unit, gap_threshold)``.
+    """
+    for label in graph_labels:
+        if parse_flexible_datetime(label) is None:
+            continue
+        s = label.strip().upper()
+        if "-W" in s:
+            return "weeks", 1
+        if "-Q" in s:
+            return "months", 3
+        n_parts = len(s.split("-"))
+        if n_parts == 3:      # YYYY-MM-DD
+            return "days", 1
+        if n_parts == 2:      # YYYY-MM
+            return "months", 1
+        return "years", 1     # YYYY
+    return "months", 1
+
+
 def detect_temporal_gaps(graph_labels: List[str],
-                         gap_threshold: int = 1,
-                         unit: str = "months",
+                         gap_threshold: Optional[int] = None,
+                         unit: Optional[str] = None,
                          verbose: bool = False) -> Dict:
     """
     Detect temporal gaps in a list of labels with detailed reporting.
@@ -184,12 +227,15 @@ def detect_temporal_gaps(graph_labels: List[str],
     graph_labels : list of str
         Temporal labels (e.g., ["2024-03", "2024-04", "2024-11"])
     gap_threshold : int, optional
-        Threshold for detecting gaps (default: 1)
-        - For monthly data: threshold=1 means 2+ months apart is a gap
-        - For daily data: threshold=7 means 8+ days apart is a gap
+        A gap is flagged when consecutive labels are more than ``gap_threshold``
+        ``unit`` apart. If None (default), it is inferred from the label format
+        (1 for monthly/daily/weekly/yearly, 3 for quarterly) so that a regularly
+        spaced series reports no gaps. Pass an explicit value to override.
     unit : str, optional
-        Time unit for calculation: "days", "weeks", "months", "years"
-        (default: "months")
+        Time unit for the gap calculation: "days", "weeks", "months", or
+        "years". If None (default), inferred from the label format (e.g.
+        "months" for ``YYYY-MM``, "days" for ``YYYY-MM-DD``, "years" for
+        ``YYYY``, "weeks" for ``YYYY-W##``). Pass an explicit value to override.
     verbose : bool, optional
         If True, print detailed gap report (default: False)
 
@@ -223,6 +269,15 @@ def detect_temporal_gaps(graph_labels: List[str],
     >>> result["gaps"][0]["gap_size"]
     6.0
     """
+
+    # Infer the natural cadence from the label format so quarterly/yearly/daily/
+    # weekly series are handled correctly, not just monthly. Explicit arguments
+    # always take precedence.
+    inferred_unit, inferred_threshold = _infer_unit_and_threshold(graph_labels)
+    if unit is None:
+        unit = inferred_unit
+    if gap_threshold is None:
+        gap_threshold = inferred_threshold
 
     if len(graph_labels) < 2:
         report = "No gaps: Data is continuous or contains fewer than 2 points."

@@ -131,12 +131,16 @@ def communities_measures(graphs: List,
             graph_label = graph_labels[graph_idx]
 
             try:
-                # Convert to undirected for algorithms that require it
+                # Convert to undirected for algorithms that require it.
+                # community_multilevel (louvain) and community_leiden are
+                # modularity-based and only operate on undirected graphs.
                 g = graph.copy()
                 if g.is_directed() and algo_func in {"community_walktrap",
                                                       "community_fastgreedy",
                                                       "community_label_propagation",
-                                                      "community_spinglass"}:
+                                                      "community_spinglass",
+                                                      "community_multilevel",
+                                                      "community_leiden"}:
                     g = g.as_undirected()
 
                 # Simplify graph to remove multi-edges and loops

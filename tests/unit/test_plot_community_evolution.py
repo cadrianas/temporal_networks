@@ -34,5 +34,19 @@ class TestPlotCommunityEvolution(unittest.TestCase):
         with self.assertRaises(ValueError):
             plot_community_evolution(graphs, community_algorithm="invalid_algo", output_file=self.output_file)
 
+    def test_louvain_on_directed_graphs(self):
+        """Regression (bug #2): louvain must be converted to undirected, not crash."""
+        graphs = [ig.Graph.Barabasi(n=20, m=2, directed=True) for _ in range(3)]
+        plot_community_evolution(graphs, community_algorithm="louvain",
+                                 output_file=self.output_file)
+        self.assertTrue(os.path.exists(self.output_file))
+
+    def test_edge_betweenness_on_directed_graphs(self):
+        """Regression (bug #3): edge_betweenness dendrogram needs as_clustering()."""
+        graphs = [ig.Graph.Barabasi(n=20, m=2, directed=True) for _ in range(3)]
+        plot_community_evolution(graphs, community_algorithm="edge_betweenness",
+                                 output_file=self.output_file)
+        self.assertTrue(os.path.exists(self.output_file))
+
 if __name__ == '__main__':
     unittest.main()
