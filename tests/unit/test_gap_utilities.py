@@ -1,7 +1,12 @@
 import unittest
 from datetime import datetime
 
-from temporal_networks._gap_utilities import parse_flexible_datetime, format_large_numbers
+from temporal_networks._gap_utilities import (
+    parse_flexible_datetime,
+    format_large_numbers,
+    detect_temporal_gaps,
+    _infer_unit_and_threshold,
+)
 
 class TestFormatLargeNumbers(unittest.TestCase):
     def test_format_small_numbers(self):
@@ -74,6 +79,55 @@ class TestParseFlexibleDatetime(unittest.TestCase):
 
         # Empty string
         self.assertIsNone(parse_flexible_datetime(""))
+
+class TestGapDetectionLabelFormats(unittest.TestCase):
+    """Gap detection must adapt to the label format, not assume monthly data."""
+
+    def test_infer_unit_and_threshold(self):
+        self.assertEqual(_infer_unit_and_threshold(["2024-01", "2024-02"]),
+                         ("months", 1))
+        self.assertEqual(_infer_unit_and_threshold(["2024-01-01", "2024-01-02"]),
+                         ("days", 1))
+        self.assertEqual(_infer_unit_and_threshold(["2024-W01", "2024-W02"]),
+                         ("weeks", 1))
+        self.assertEqual(_infer_unit_and_threshold(["2024-Q1", "2024-Q2"]),
+                         ("months", 3))
+        self.assertEqual(_infer_unit_and_threshold(["2020", "2021"]),
+                         ("years", 1))
+        # Unparseable labels fall back to the monthly default
+        self.assertEqual(_infer_unit_and_threshold(["phase1", "phase2"]),
+                         ("months", 1))
+
+    def test_regularly_spaced_series_report_no_gaps(self):
+        """A consecutive series of any supported format must report 0 gaps."""
+        for labels in (
+            ["2024-01", "2024-02", "2024-03", "2024-04"],          # monthly
+            ["2024-Q1", "2024-Q2", "2024-Q3", "2024-Q4"],          # quarterly
+            ["2020", "2021", "2022", "2023"],                      # yearly
+            ["2024-03-01", "2024-03-02", "2024-03-03"],            # daily
+            ["2024-W01", "2024-W02", "2024-W03"],                  # weekly
+        ):
+            with self.subTest(labels=labels):
+                self.assertFalse(detect_temporal_gaps(labels)["has_gaps"])
+
+    def test_skipped_period_is_detected(self):
+        # Skipped quarter (Q2 missing)
+        self.assertEqual(
+            detect_temporal_gaps(["2024-Q1", "2024-Q3", "2024-Q4"])["num_gaps"], 1)
+        # Skipped year
+        self.assertEqual(
+            detect_temporal_gaps(["2020", "2022", "2023"])["num_gaps"], 1)
+        # Sub-monthly gap that the old months-only logic missed
+        self.assertEqual(
+            detect_temporal_gaps(
+                ["2024-03-01", "2024-03-02", "2024-03-20"])["num_gaps"], 1)
+
+    def test_explicit_unit_overrides_inference(self):
+        # Forcing months on yearly labels reproduces the old (coarser) behavior
+        info = detect_temporal_gaps(["2020", "2021"], unit="months",
+                                    gap_threshold=1)
+        self.assertTrue(info["has_gaps"])  # 12 months apart > threshold 1
+
 
 if __name__ == '__main__':
     unittest.main()
