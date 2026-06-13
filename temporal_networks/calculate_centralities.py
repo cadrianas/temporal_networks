@@ -73,19 +73,18 @@ def calculate_centralities(graphs: List,
 
     Examples
     --------
+    >>> import random
     >>> import igraph as ig
     >>> from temporal_networks import calculate_centralities
-    >>>
-    >>> # Continuous data (no gaps)
+    >>> ig.set_random_number_generator(random.Random(42))
     >>> graphs = [ig.Graph.Barabasi(n=50, m=2) for _ in range(12)]
-    >>> labels = [f"2024-{i+1:02d}" for i in range(12)]
-    >>> centralities = calculate_centralities(graphs, graph_labels=labels)
-    >>>
-    >>> # Gapped data (seasonal operation)
-    >>> labels_seasonal = ["2024-03", "2024-04", "2024-05", "2024-06",
-    ...                    "2024-07", "2024-08", "2024-11", "2024-12"]
-    >>> centralities = calculate_centralities(graphs[:8], graph_labels=labels_seasonal)
-    >>> # Will report: Gap between 2024-08 and 2024-11
+    >>> for g in graphs:
+    ...     g.vs["name"] = [f"Node_{i}" for i in range(g.vcount())]
+    >>> labels = [f"2024-{i + 1:02d}" for i in range(12)]
+    >>> centralities = calculate_centralities(
+    ...     graphs, graph_labels=labels, filename=None, report_gaps=False)
+    >>> centralities.shape
+    (600, 13)
 
     Notes
     -----

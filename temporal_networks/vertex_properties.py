@@ -73,15 +73,19 @@ def vertex_properties(graphs: List,
 
     Examples
     --------
+    >>> import random
     >>> import igraph as ig
     >>> from temporal_networks import vertex_properties
+    >>> ig.set_random_number_generator(random.Random(42))
     >>> G1 = ig.Graph.Barabasi(n=50, m=2)
     >>> G2 = ig.Graph.Barabasi(n=50, m=2)
     >>> G1.vs["name"] = [f"Node_{i}" for i in range(50)]
     >>> G2.vs["name"] = [f"Node_{i}" for i in range(50)]
-    >>> graphs = [G1, G2]
-    >>> labels = ["2019-01", "2019-02"]
-    >>> props = vertex_properties(graphs, node_name="Node_5", graph_labels=labels)
+    >>> props = vertex_properties(
+    ...     [G1, G2], node_name="Node_5",
+    ...     graph_labels=["2019-01", "2019-02"], report_gaps=False)
+    >>> props.shape
+    (2, 13)
 
     Notes
     -----

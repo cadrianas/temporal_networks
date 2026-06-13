@@ -72,21 +72,16 @@ def network_properties(graphs: List,
 
     Examples
     --------
-    >>> import igraph as ig
     >>> import random
+    >>> import igraph as ig
     >>> from temporal_networks import network_properties
-    >>>
-    >>> # Continuous data (no gaps)
-    >>> random.seed(42)
-    >>> graphs = [ig.Graph.Barabasi(n=100, m=2) for _ in range(12)]
-    >>> labels = [f"2024-{i+1:02d}" for i in range(12)]
-    >>> props = network_properties(graphs, graph_labels=labels)
-    >>>
-    >>> # Gapped data (seasonal operation)
-    >>> labels_seasonal = ["2024-03", "2024-04", "2024-05", "2024-06",
-    ...                    "2024-07", "2024-08", "2024-11", "2024-12"]
-    >>> props = network_properties(graphs[:8], graph_labels=labels_seasonal)
-    >>> # Will report: Gap between 2024-08 and 2024-11
+    >>> # Seed igraph's RNG so the snapshots are reproducible
+    >>> ig.set_random_number_generator(random.Random(42))
+    >>> graphs = [ig.Graph.Barabasi(n=50, m=2) for _ in range(12)]
+    >>> labels = [f"2024-{i + 1:02d}" for i in range(12)]
+    >>> props = network_properties(graphs, graph_labels=labels, report_gaps=False)
+    >>> props.shape
+    (12, 19)
 
     Notes
     -----

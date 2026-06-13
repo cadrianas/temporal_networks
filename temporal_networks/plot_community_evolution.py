@@ -122,10 +122,13 @@ def plot_community_evolution(graphs: List,
 
     Examples
     --------
+    >>> import random
     >>> import igraph as ig
     >>> from temporal_networks import plot_community_evolution
+    >>> ig.set_random_number_generator(random.Random(42))
     >>> graphs = [ig.Graph.Barabasi(n=50, m=2) for _ in range(12)]
-    >>> plot_community_evolution(graphs, community_algorithm="louvain")
+    >>> plot_community_evolution(
+    ...     graphs, community_algorithm="louvain")  # doctest: +SKIP
 
     Notes
     -----

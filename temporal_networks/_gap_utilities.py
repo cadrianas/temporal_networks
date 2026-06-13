@@ -545,7 +545,7 @@ def plot_with_gap_handling(ax, graph_labels: List[str], y_values,
     >>>
     >>> fig, ax = plt.subplots()
     >>> plot_with_gap_handling(ax, labels, y_values, gap_info["segments"])
-    >>> ax.set_title("Example with Gap")
+    >>> _ = ax.set_title("Example with Gap")
     """
     # Set default plot styles
     default_kwargs = {

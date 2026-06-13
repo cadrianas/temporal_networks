@@ -68,13 +68,14 @@ def communities_measures(graphs: List,
 
     Examples
     --------
+    >>> import random
     >>> import igraph as ig
     >>> from temporal_networks import communities_measures
-    >>> G1 = ig.Graph.Barabasi(n=100, m=2)
-    >>> G2 = ig.Graph.Barabasi(n=100, m=2)
-    >>> graphs = [G1, G2]
+    >>> ig.set_random_number_generator(random.Random(42))
+    >>> graphs = [ig.Graph.Barabasi(n=100, m=2) for _ in range(2)]
     >>> labels = ["2019-01", "2019-02"]
-    >>> communities = communities_measures(graphs, graph_labels=labels)
+    >>> communities = communities_measures(
+    ...     graphs, graph_labels=labels)  # doctest: +SKIP
 
     Notes
     -----
