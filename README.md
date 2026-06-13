@@ -41,12 +41,13 @@ pip install -e .
 ## Quick Start
 
 ```python
-import igraph as ig
 import random
+import igraph as ig
 from temporal_networks import network_properties
 
-# Set seed for reproducibility
-random.seed(42)
+# Seed igraph's RNG so the snapshots are reproducible
+# (random.seed alone does NOT affect igraph's generators)
+ig.set_random_number_generator(random.Random(42))
 
 # Create 12 monthly network snapshots with a gap in summer
 graphs = [ig.Graph.Barabasi(n=50, m=2) for _ in range(12)]
