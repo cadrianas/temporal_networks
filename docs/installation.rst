@@ -20,7 +20,7 @@ Requirements
 
 ``temporal_networks`` requires Python 3.9 or later. Its runtime
 dependencies (``numpy``, ``pandas``, ``igraph``, ``matplotlib``,
-``seaborn``, ``plotly``) are installed automatically by pip.
+``plotly``) are installed automatically by pip.
 
 To set up a development environment with the test suite and linter, see the
 `contributing guide

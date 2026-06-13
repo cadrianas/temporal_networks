@@ -7,7 +7,7 @@ name = "temporal_networks"
 version = "0.1.0"
 description = "Python package for analyzing dynamic networks over time with automatic gap detection"
 readme = "README.md"
-license = { text = "GPL-3.0" }
+license = { text = "GPL-3.0-only" }
 authors = [
     { name = "Adriana-Stefania Ciupeanu", email = "cadrianas@gmail.com" },
     { name = "Julien Arino", email = "Julien.Arino@umanitoba.ca" },
@@ -30,7 +30,6 @@ dependencies = [
     "pandas>=2.2.2",
     "igraph>=0.11.5",
     "matplotlib>=3.8.4",
-    "seaborn>=0.13.2",
     "plotly>=5.22.0",
 ]
 
