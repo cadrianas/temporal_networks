@@ -274,7 +274,7 @@ def _plot_community_stats(stats_df: pd.DataFrame, algo_name: str,
                                   marker='o', linestyle='-', markersize=10,
                                   linewidth=2, color='#2ca02c')
 
-            ax.set_xlabel("Year - Month", fontsize=14, fontweight='bold')
+            ax.set_xlabel("Time", fontsize=14, fontweight='bold')
             ax.set_ylabel(prop_label, fontsize=14, fontweight='bold')
             ax.set_title(f"{prop_label} ({algo_name})", fontsize=16, fontweight='bold')
 

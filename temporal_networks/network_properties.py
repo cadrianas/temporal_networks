@@ -243,7 +243,7 @@ def _plot_properties(network_data: pd.DataFrame, gap_info: dict,
                                   marker='o', linestyle='-', markersize=10,
                                   linewidth=2, color='#1f77b4')
 
-            ax.set_xlabel("Year - Month", fontsize=14, fontweight='bold')
+            ax.set_xlabel("Time", fontsize=14, fontweight='bold')
             ax.set_ylabel(prop, fontsize=14, fontweight='bold')
             ax.set_title(f"{prop} Over Time", fontsize=16, fontweight='bold')
 
