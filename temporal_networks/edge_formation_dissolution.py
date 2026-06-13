@@ -214,6 +214,19 @@ def plot_edge_dynamics(dynamics_df: pd.DataFrame,
     The plot uses gap-aware plotting to preserve temporal gaps.
     If you have data for Jan, Mar (Feb missing), the plot will show that
     gap visually instead of drawing a false line.
+
+    Examples
+    --------
+    >>> import random
+    >>> import igraph as ig
+    >>> from temporal_networks import (compute_edge_dynamics, plot_edge_dynamics,
+    ...                                detect_temporal_gaps)
+    >>> ig.set_random_number_generator(random.Random(42))
+    >>> graphs = [ig.Graph.Barabasi(n=30, m=2) for _ in range(6)]
+    >>> labels = [f"2024-{i + 1:02d}" for i in range(6)]
+    >>> dynamics = compute_edge_dynamics(graphs, graph_labels=labels)
+    >>> gap_info = detect_temporal_gaps(labels)
+    >>> plot_edge_dynamics(dynamics, labels, gap_info, metric="Edges_Formed")
     """
 
     if metric not in dynamics_df.columns:
@@ -297,6 +310,20 @@ def edge_formation(graphs: List,
     -------
     pandas.DataFrame
         DataFrame with edge dynamics
+
+    Examples
+    --------
+    >>> import random
+    >>> import igraph as ig
+    >>> from temporal_networks import edge_formation
+    >>> ig.set_random_number_generator(random.Random(42))
+    >>> graphs = [ig.Graph.Barabasi(n=30, m=2) for _ in range(6)]
+    >>> labels = [f"2024-{i + 1:02d}" for i in range(6)]
+    >>> dynamics = edge_formation(graphs, graph_labels=labels, report_gaps=False)
+    Computing edge formation...
+    Plotting edge formation...
+    >>> dynamics.shape
+    (5, 5)
     """
 
     # Validate inputs and set up labels
@@ -346,6 +373,20 @@ def edge_dissolution(graphs: List,
     -------
     pandas.DataFrame
         DataFrame with edge dynamics
+
+    Examples
+    --------
+    >>> import random
+    >>> import igraph as ig
+    >>> from temporal_networks import edge_dissolution
+    >>> ig.set_random_number_generator(random.Random(42))
+    >>> graphs = [ig.Graph.Barabasi(n=30, m=2) for _ in range(6)]
+    >>> labels = [f"2024-{i + 1:02d}" for i in range(6)]
+    >>> dynamics = edge_dissolution(graphs, graph_labels=labels, report_gaps=False)
+    Computing edge dissolution...
+    Plotting edge dissolution...
+    >>> dynamics.shape
+    (5, 5)
     """
 
     # Validate inputs and set up labels
