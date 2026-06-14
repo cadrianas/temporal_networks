@@ -1,0 +1,7 @@
+# .mailmap — canonicalizes commit-author identities for `git log`/`git shortlog`/
+# `git blame` (with --use-mailmap, the default for shortlog) and for GitHub's
+# aggregate Contributors graph. It does NOT change the author shown on individual
+# commit pages on github.com, nor does it rewrite history.
+#
+# Attribute the Jules AI agent's automated commits to Julien Arino.
+Julien Arino <51942189+julien-arino@users.noreply.github.com> google-labs-jules[bot] <161369871+google-labs-jules[bot]@users.noreply.github.com>
