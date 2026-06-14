@@ -311,6 +311,8 @@ def detect_temporal_gaps(graph_labels: List[str],
     for i in range(1, len(parsed_dates)):
         date_prev = parsed_dates[i - 1]
         date_curr = parsed_dates[i]
+        # Guaranteed non-None by the all-parsed check above (narrows for typing)
+        assert date_prev is not None and date_curr is not None
 
         time_diff = calculate_time_difference(date_prev, date_curr, unit=unit)
 

@@ -153,7 +153,7 @@ def _compute_vertex_properties(graphs: List, node_name: str,
     pandas.DataFrame
         One row per graph with a column for each computed metric.
     """
-    properties = {
+    properties: dict = {
         "Graph": [],
         "Degree_Centrality": [],
         "Closeness_Centrality": [],

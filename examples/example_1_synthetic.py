@@ -31,7 +31,8 @@ from temporal_networks.network_properties import network_properties
 from temporal_networks.calculate_centralities import calculate_centralities
 from temporal_networks.communities_measures import communities_measures
 from temporal_networks.vertex_properties import vertex_properties
-from temporal_networks.edge_formation_dissolution import edge_formation, edge_dissolution
+from temporal_networks.edge_formation_dissolution import (
+    edge_formation, edge_dissolution)
 
 # Create output directories
 os.makedirs("./plots/continuous/", exist_ok=True)
@@ -157,7 +158,8 @@ for i, label in enumerate(operation_2_labels):
     labels_gapped.append(label)
     print(f"    ✓ {label}: {g.vcount()} nodes, {g.ecount()} edges")
 
-print(f"\n✓ Created {len(graphs_gapped)} gapped temporal networks with gap between periods")
+print(f"\n✓ Created {len(graphs_gapped)} gapped temporal networks "
+      f"with gap between periods")
 
 # ============================================================================
 # STEP 2: Analyze Network Properties - CONTINUOUS DATA
@@ -170,7 +172,7 @@ print("\nAnalyzing continuous 12-month dataset...")
 props_continuous = network_properties(
     graphs=graphs_continuous,
     graph_labels=labels_continuous,
-    filename="./plots/continuous/synthetic_continuous_network_properties.csv",  # Full path
+    filename="./plots/continuous/synthetic_continuous_network_properties.csv",
     save_path="./plots/continuous/",  # For plots
     visualisation=True  # Creates PDF plots - should show continuous line
 )
@@ -225,7 +227,7 @@ Gapped Data (Mar-Aug + Nov-Feb with gap):
     * Bike-sharing (closed in winter)
     * Seasonal tourism
     * Systems with maintenance windows
-  
+
 THE KEY FEATURE:
 Our package's plot functions preserve gaps in the timeline.
 Instead of drawing a line through the missing Sep-Oct data,
@@ -245,14 +247,14 @@ print("-" * 70)
 print("\nCONTINUOUS DATA:")
 print(f"  Time span: {labels_continuous[0]} to {labels_continuous[-1]}")
 print(f"  Number of observations: {len(labels_continuous)}")
-print(f"  Pattern: No gaps (every month)")
+print("  Pattern: No gaps (every month)")
 
 print("\nGAPPED DATA:")
 print(f"  Period 1: {labels_gapped[0]} to {labels_gapped[5]}")
 print(f"  [GAP: {labels_gapped[5]} → {labels_gapped[6]}]")
 print(f"  Period 2: {labels_gapped[6]} to {labels_gapped[-1]}")
 print(f"  Number of observations: {len(labels_gapped)}")
-print(f"  Pattern: 6 months + gap + 4 months")
+print("  Pattern: 6 months + gap + 4 months")
 
 # ============================================================================
 # STEP 4: Compute Node Centrality Measures - CONTINUOUS DATA
@@ -267,13 +269,15 @@ centralities_continuous = calculate_centralities(
     filename="./plots/continuous/synthetic_continuous_centralities.csv"  # Full path
 )
 
-print(f"\n✓ Centralities computed for {len(centralities_continuous)} node-time combinations")
+print(f"\n✓ Centralities computed for {len(centralities_continuous)} "
+      f"node-time combinations")
 print("\nMost central nodes (first and last months) - Continuous Data:")
 
 # Show central nodes in first and last months
 for label in [labels_continuous[0], labels_continuous[-1]]:
     month_data = centralities_continuous[centralities_continuous["Graph"] == label]
-    top_node = month_data.nlargest(1, "Betweenness_Centrality")[["Node", "Betweenness_Centrality"]]
+    top_node = month_data.nlargest(
+        1, "Betweenness_Centrality")[["Node", "Betweenness_Centrality"]]
     if not top_node.empty:
         node_name = top_node.iloc[0]["Node"]
         centrality_val = top_node.iloc[0]["Betweenness_Centrality"]
@@ -292,7 +296,8 @@ centralities_gapped = calculate_centralities(
     filename="./plots/gapped/synthetic_gapped_centralities.csv"  # Full path
 )
 
-print(f"\n✓ Centralities computed for {len(centralities_gapped)} node-time combinations")
+print(f"\n✓ Centralities computed for {len(centralities_gapped)} "
+      f"node-time combinations")
 print("\nMost central nodes - Gapped Data:")
 print("  Before gap (Aug) and after gap (Nov):")
 
@@ -301,13 +306,15 @@ before_gap = centralities_gapped[centralities_gapped["Graph"] == "2024-08"]
 after_gap = centralities_gapped[centralities_gapped["Graph"] == "2024-11"]
 
 if not before_gap.empty:
-    top_node = before_gap.nlargest(1, "Betweenness_Centrality")[["Node", "Betweenness_Centrality"]]
+    top_node = before_gap.nlargest(
+        1, "Betweenness_Centrality")[["Node", "Betweenness_Centrality"]]
     node_name = top_node.iloc[0]["Node"]
     centrality_val = top_node.iloc[0]["Betweenness_Centrality"]
     print(f"    Before gap (2024-08): {node_name} (betweenness = {centrality_val:.2f})")
 
 if not after_gap.empty:
-    top_node = after_gap.nlargest(1, "Betweenness_Centrality")[["Node", "Betweenness_Centrality"]]
+    top_node = after_gap.nlargest(
+        1, "Betweenness_Centrality")[["Node", "Betweenness_Centrality"]]
     node_name = top_node.iloc[0]["Node"]
     centrality_val = top_node.iloc[0]["Betweenness_Centrality"]
     print(f"    After gap (2024-11): {node_name} (betweenness = {centrality_val:.2f})")
@@ -397,12 +404,12 @@ edges_nov = set([(e.source, e.target) for e in g_nov.es])
 new_edges = edges_nov - edges_aug
 lost_edges = edges_aug - edges_nov
 
-print(f"\n  Aug → [GAP: Sep-Oct] → Nov (3-month operational break):")
+print("\n  Aug → [GAP: Sep-Oct] → Nov (3-month operational break):")
 print(f"    Routes that were lost during shutdown: {len(lost_edges)}")
 print(f"    New routes when reopening: {len(new_edges)}")
-print(f"    This 3-month gap is correctly represented in plots")
-print(f"    (not hidden or smoothed over)")
-print(f"\n  The plots will show 6 points (Mar-Aug), then skip to 4 points (Nov-Feb)")
+print("    This 3-month gap is correctly represented in plots")
+print("    (not hidden or smoothed over)")
+print("\n  The plots will show 6 points (Mar-Aug), then skip to 4 points (Nov-Feb)")
 
 # ============================================================================
 # STEP 6C: EXPLICIT GAP VERIFICATION
@@ -427,12 +434,12 @@ print("to accurately represent the 3-month operational closure.")
 print("\nComparison:")
 print("\n  CONTINUOUS DATA (12 months, no gaps):")
 print(f"    Labels: {labels_continuous}")
-print(f"    X-axis in plots: Shows every month in sequence")
+print("    X-axis in plots: Shows every month in sequence")
 
 print("\n  GAPPED DATA (10 months with gap):")
 print(f"    Labels: {labels_gapped}")
-print(f"    X-axis in plots: Shows Mar-Aug, then jumps to Nov-Feb")
-print(f"                     (gap between Aug and Nov is visible)")
+print("    X-axis in plots: Shows Mar-Aug, then jumps to Nov-Feb")
+print("                     (gap between Aug and Nov is visible)")
 
 print("\n" + "=" * 70)
 print("This demonstrates that the package CORRECTLY handles temporal gaps")
@@ -457,12 +464,12 @@ vertex_props_gapped = vertex_properties(
 )
 
 print(f"\n✓ Properties of {node_to_track} tracked across gapped timeline")
-print(f"  Timeline: Mar-Aug, [GAP], Nov-Feb")
-print(f"\nVertex properties show:")
-print(f"  - Behavior during Operation 1 (Mar-Aug)")
-print(f"  - [GAP: Sep-Oct missing data]")
-print(f"  - Behavior during Operation 2 (Nov-Feb)")
-print(f"\nPlots correctly display the gap as a visual break")
+print("  Timeline: Mar-Aug, [GAP], Nov-Feb")
+print("\nVertex properties show:")
+print("  - Behavior during Operation 1 (Mar-Aug)")
+print("  - [GAP: Sep-Oct missing data]")
+print("  - Behavior during Operation 2 (Nov-Feb)")
+print("\nPlots correctly display the gap as a visual break")
 
 # ============================================================================
 # STEP 8: Summary - Gap Handling Feature Showcase
@@ -478,13 +485,13 @@ This example demonstrated TWO critical temporal data patterns:
 CONTINUOUS DATA (12 consecutive months)
 ================================================================================
   Pattern: Jan, Feb, Mar, Apr, May, Jun, Jul, Aug, Sep, Oct, Nov, Dec
-  
+
   Characteristics:
     - Uninterrupted measurements
     - Complete annual cycle visible
     - Useful for seasonal analysis
     - No data collection gaps
-  
+
   Plot behavior:
     - All 12 points connected by continuous line
     - Shows full progression through year
@@ -499,19 +506,19 @@ CONTINUOUS DATA (12 consecutive months)
 GAPPED DATA (Mar-Aug + 3-month gap + Nov-Feb)
 ================================================================================
   Pattern: Mar, Apr, May, Jun, Jul, Aug, [GAP], Nov, Dec, Jan, Feb
-  
+
   Characteristics:
     - Operational breaks (seasonal closure, maintenance windows)
     - Two separate measurement periods
     - Realistic for many real-world systems
     - Critical to preserve gap in analysis
-  
+
   Plot behavior:
     - First segment (Mar-Aug): 6 connected points
     - [VISUAL GAP: Sep-Oct missing]
     - Second segment (Nov-Feb): 4 connected points
     - Gap correctly shown as discontinuity in plots
-  
+
   Real-world examples:
     - Bike-sharing: April-October season, closed Nov-March
     - Seasonal tourism: open in summer, closed in winter
@@ -605,7 +612,7 @@ CONTINUOUS DATA (12 months, no gaps):
   CSV results:
     - synthetic_continuous_network_properties.csv
     - synthetic_continuous_centralities.csv
-  
+
   PDF visualizations (continuous 12-point time series):
     - Number of Nodes.pdf          (12 connected points)
     - Number of Edges.pdf          (12 connected points)
@@ -628,7 +635,7 @@ GAPPED DATA (Mar-Aug + 3-month gap + Nov-Feb):
     - synthetic_Node_0_properties_gapped.csv
     - communities_*_assignments.csv
     - communities_*_stats.csv
-  
+
   PDF visualizations (showing the gap visually):
     - Number of Nodes.pdf          (6 points, gap, 4 points)
     - Number of Edges.pdf          (6 points, gap, 4 points)
@@ -658,11 +665,11 @@ WHAT THIS DEMONSTRATES:
 COMPARE THE PDF FILES:
   1. Open continuous/Number of Edges.pdf
      → See 12 points in smooth sequence (Jan→Dec)
-  
+
   2. Open gapped/Number of Edges.pdf
      → See 6 points (Mar→Aug), gap, then 4 points (Nov→Feb)
      → Notice the x-axis label jump between August and November
-     
+
 This visual difference proves the gap handling works!
 """)
 

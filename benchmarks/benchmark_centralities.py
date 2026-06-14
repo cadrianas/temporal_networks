@@ -1,5 +1,4 @@
 import time
-import igraph as ig
 from temporal_networks import calculate_centralities
 
 def run_benchmark(num_graphs=1000, num_nodes=100):
@@ -36,7 +35,8 @@ def run_benchmark(num_graphs=1000, num_nodes=100):
     bad_graphs = [BadGraph(num_nodes) for _ in range(num_graphs)]
 
     start = time.time()
-    calculate_centralities(bad_graphs, graph_labels=labels, report_gaps=False, filename=None)
+    calculate_centralities(bad_graphs, graph_labels=labels, report_gaps=False,
+                           filename=None)
     end = time.time()
 
     total_calls = sum(g.vcount_calls for g in bad_graphs)
