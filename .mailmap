@@ -1,0 +1,5 @@
+# Canonicalizes commit-author identities for git log / shortlog / blame
+# (with --use-mailmap) and GitHub's aggregate Contributors graph. Maps a
+# former automated-contributor identity to Julien Arino. Non-destructive:
+# this does not rewrite history.
+Julien Arino <51942189+julien-arino@users.noreply.github.com> google-labs-jules[bot] <161369871+google-labs-jules[bot]@users.noreply.github.com>
