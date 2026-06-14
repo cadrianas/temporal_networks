@@ -1,6 +1,5 @@
 import time
 from unittest.mock import Mock
-import pandas as pd
 from temporal_networks import calculate_centralities
 
 def run_benchmark():
@@ -34,7 +33,8 @@ def run_benchmark():
     labels = [f"G{i}" for i in range(1000)]
 
     start = time.perf_counter()
-    calculate_centralities(graphs, graph_labels=labels, filename=None, report_gaps=False)
+    calculate_centralities(graphs, graph_labels=labels, filename=None,
+                           report_gaps=False)
     end = time.perf_counter()
 
     print(f"Time taken: {end - start:.4f} seconds")

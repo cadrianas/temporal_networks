@@ -38,6 +38,7 @@ dev = [
     "pytest>=7.0",
     "pytest-cov>=4.0",
     "ruff>=0.4.0",
+    "mypy>=1.0",
 ]
 docs = [
     "sphinx>=7.0",
@@ -53,15 +54,22 @@ Repository = "https://github.com/cadrianas/temporal_networks"
 [tool.setuptools.packages.find]
 exclude = ["tests*", "benchmarks*", "examples*"]
 
+[tool.setuptools.package-data]
+temporal_networks = ["py.typed"]
+
 [tool.pytest.ini_options]
-addopts = "-v"  
+addopts = "-v"
 
 [tool.ruff]
 line-length = 88
-exclude = ["tests/", "examples/", "benchmarks/"]
+exclude = ["tests/"]
 
 [tool.ruff.lint]
 select = ["E", "F", "W"]
+
+[tool.mypy]
+files = ["temporal_networks"]
+ignore_missing_imports = true
 
 [tool.coverage.run]
 source = ["temporal_networks"]

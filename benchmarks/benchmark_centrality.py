@@ -1,6 +1,5 @@
 import time
 import igraph as ig
-import pandas as pd
 from temporal_networks.calculate_centralities import calculate_centralities
 
 def benchmark():
@@ -25,7 +24,8 @@ def benchmark():
     graphs = [graph for _ in range(100)]
 
     start_time = time.time()
-    calculate_centralities(graphs, filename=None, report_gaps=False, visualize_evolution=False)
+    calculate_centralities(graphs, filename=None, report_gaps=False,
+                           visualize_evolution=False)
     end_time = time.time()
 
     print(f"Execution time: {end_time - start_time:.4f} seconds")

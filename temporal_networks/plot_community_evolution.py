@@ -51,7 +51,7 @@ def _detect_communities(graphs: List,
 
     print(f"Computing community evolution with {algo_name} algorithm...")
 
-    communities_list = []
+    communities_list: List[Any] = []
     for graph_idx, graph in enumerate(graphs):
         try:
             g = graph.copy()
@@ -229,8 +229,8 @@ def _create_animation_frames(graphs: List,
             pos_x = [p[0] for p in pos]
             pos_y = [p[1] for p in pos]
 
-            edge_x = []
-            edge_y = []
+            edge_x: List[Any] = []
+            edge_y: List[Any] = []
             app_x = edge_x.append
             app_y = edge_y.append
 
