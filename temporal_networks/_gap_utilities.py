@@ -51,6 +51,46 @@ def validate_and_setup_graphs(graphs: List,
     return graph_labels
 
 
+def _vertex_keys(graph) -> list:
+    """
+    Return per-vertex identity keys for a graph.
+
+    Vertices are keyed by their ``name`` attribute when present, otherwise by
+    ``label``, otherwise by integer position. This gives a stable identity for
+    comparing the same node across temporal snapshots even when snapshots store
+    their vertices in a different order.
+
+    Parameters
+    ----------
+    graph : igraph.Graph
+        Graph whose vertex keys to extract.
+
+    Returns
+    -------
+    list
+        One identity key per vertex, in vertex-index order. Keys are the
+        ``name`` values, the ``label`` values, or ``list(range(vcount))`` as a
+        fallback when neither attribute is present.
+
+    Examples
+    --------
+    >>> import igraph as ig
+    >>> from temporal_networks._gap_utilities import _vertex_keys
+    >>> g = ig.Graph(n=3)
+    >>> g.vs["name"] = ["a", "b", "c"]
+    >>> _vertex_keys(g)
+    ['a', 'b', 'c']
+    >>> _vertex_keys(ig.Graph(n=2))
+    [0, 1]
+    """
+    attrs = graph.vs.attributes()
+    if "name" in attrs:
+        return list(graph.vs["name"])
+    if "label" in attrs:
+        return list(graph.vs["label"])
+    return list(range(graph.vcount()))
+
+
 # ============================================================================
 # DATETIME PARSING
 # ============================================================================

@@ -21,7 +21,8 @@ from ._gap_utilities import (
     print_gap_report,
     plot_with_gap_handling,
     format_large_numbers,
-    validate_and_setup_graphs
+    validate_and_setup_graphs,
+    _vertex_keys,
 )
 
 __all__ = [
@@ -57,21 +58,11 @@ def _edge_identity_set(graph) -> set:
     set
         Set of ``(source_key, target_key)`` tuples.
     """
-    attrs = graph.vs.attributes()
-    if "name" in attrs:
-        keys = graph.vs["name"]
-    elif "label" in attrs:
-        keys = graph.vs["label"]
-    else:
-        keys = None
-
+    keys = _vertex_keys(graph)
     directed = graph.is_directed()
     edge_set = set()
     for source, target in graph.get_edgelist():
-        if keys is not None:
-            u, v = keys[source], keys[target]
-        else:
-            u, v = source, target
+        u, v = keys[source], keys[target]
         if not directed:
             u, v = tuple(sorted((u, v)))
         edge_set.add((u, v))
