@@ -1,11 +1,14 @@
 import unittest
 from datetime import datetime
 
+import igraph as ig
+
 from temporal_networks._gap_utilities import (
     parse_flexible_datetime,
     format_large_numbers,
     detect_temporal_gaps,
     _infer_unit_and_threshold,
+    _vertex_keys,
 )
 
 class TestFormatLargeNumbers(unittest.TestCase):
@@ -127,6 +130,33 @@ class TestGapDetectionLabelFormats(unittest.TestCase):
         info = detect_temporal_gaps(["2020", "2021"], unit="months",
                                     gap_threshold=1)
         self.assertTrue(info["has_gaps"])  # 12 months apart > threshold 1
+
+
+class TestVertexKeys(unittest.TestCase):
+    """Vertex identity keys: name > label > integer index."""
+
+    def test_name_attribute_preferred(self):
+        g = ig.Graph(n=3)
+        g.vs["name"] = ["a", "b", "c"]
+        self.assertEqual(_vertex_keys(g), ["a", "b", "c"])
+
+    def test_label_used_when_no_name(self):
+        g = ig.Graph(n=3)
+        g.vs["label"] = ["x", "y", "z"]
+        self.assertEqual(_vertex_keys(g), ["x", "y", "z"])
+
+    def test_name_wins_over_label(self):
+        g = ig.Graph(n=2)
+        g.vs["name"] = ["n0", "n1"]
+        g.vs["label"] = ["l0", "l1"]
+        self.assertEqual(_vertex_keys(g), ["n0", "n1"])
+
+    def test_index_fallback(self):
+        g = ig.Graph(n=4)
+        self.assertEqual(_vertex_keys(g), [0, 1, 2, 3])
+
+    def test_empty_graph(self):
+        self.assertEqual(_vertex_keys(ig.Graph(n=0)), [])
 
 
 if __name__ == '__main__':
