@@ -17,6 +17,8 @@ API Reference
    detect_temporal_gaps
    snapshots_from_events
    snapshots_from_edgelist
+   snapshot_similarity
+   temporal_correlation_coefficient
 
 Data ingestion
 --------------
@@ -54,6 +56,13 @@ Edge dynamics
 .. autofunction:: edge_dissolution
 
 .. autofunction:: plot_edge_dynamics
+
+Snapshot stability
+------------------
+
+.. autofunction:: snapshot_similarity
+
+.. autofunction:: temporal_correlation_coefficient
 
 Temporal gaps
 -------------
