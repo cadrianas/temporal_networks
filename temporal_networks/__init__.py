@@ -19,6 +19,8 @@ __all__ = [
     "detect_temporal_gaps",
     "snapshots_from_events",
     "snapshots_from_edgelist",
+    "snapshot_similarity",
+    "temporal_correlation_coefficient",
 ]
 
 from .network_properties import network_properties
@@ -34,3 +36,7 @@ from .edge_formation_dissolution import (
 from .plot_community_evolution import plot_community_evolution
 from ._gap_utilities import detect_temporal_gaps
 from .io import snapshots_from_events, snapshots_from_edgelist
+from .stability import (
+    snapshot_similarity,
+    temporal_correlation_coefficient,
+)
