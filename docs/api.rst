@@ -15,6 +15,15 @@ API Reference
    plot_edge_dynamics
    plot_community_evolution
    detect_temporal_gaps
+   snapshots_from_events
+   snapshots_from_edgelist
+
+Data ingestion
+--------------
+
+.. autofunction:: snapshots_from_events
+
+.. autofunction:: snapshots_from_edgelist
 
 Network-level analysis
 ----------------------
