@@ -21,6 +21,8 @@ __all__ = [
     "snapshots_from_edgelist",
     "snapshot_similarity",
     "temporal_correlation_coefficient",
+    "inter_event_times",
+    "burstiness_coefficient",
 ]
 
 from .network_properties import network_properties
@@ -39,4 +41,8 @@ from .io import snapshots_from_events, snapshots_from_edgelist
 from .stability import (
     snapshot_similarity,
     temporal_correlation_coefficient,
+)
+from .burstiness import (
+    inter_event_times,
+    burstiness_coefficient,
 )

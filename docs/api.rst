@@ -19,6 +19,8 @@ API Reference
    snapshots_from_edgelist
    snapshot_similarity
    temporal_correlation_coefficient
+   inter_event_times
+   burstiness_coefficient
 
 Data ingestion
 --------------
@@ -63,6 +65,13 @@ Snapshot stability
 .. autofunction:: snapshot_similarity
 
 .. autofunction:: temporal_correlation_coefficient
+
+Burstiness & inter-event analysis
+---------------------------------
+
+.. autofunction:: inter_event_times
+
+.. autofunction:: burstiness_coefficient
 
 Temporal gaps
 -------------
