@@ -23,6 +23,10 @@ __all__ = [
     "temporal_correlation_coefficient",
     "inter_event_times",
     "burstiness_coefficient",
+    "temporal_reachability",
+    "temporal_distances",
+    "temporal_closeness",
+    "temporal_efficiency",
 ]
 
 from .network_properties import network_properties
@@ -45,4 +49,10 @@ from .stability import (
 from .burstiness import (
     inter_event_times,
     burstiness_coefficient,
+)
+from .temporal_paths import (
+    temporal_reachability,
+    temporal_distances,
+    temporal_closeness,
+    temporal_efficiency,
 )

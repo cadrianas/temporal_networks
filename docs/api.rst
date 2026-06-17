@@ -21,6 +21,10 @@ API Reference
    temporal_correlation_coefficient
    inter_event_times
    burstiness_coefficient
+   temporal_reachability
+   temporal_distances
+   temporal_closeness
+   temporal_efficiency
 
 Data ingestion
 --------------
@@ -72,6 +76,23 @@ Burstiness & inter-event analysis
 .. autofunction:: inter_event_times
 
 .. autofunction:: burstiness_coefficient
+
+Time-respecting paths
+---------------------
+
+.. note::
+   ``cross_gaps=False`` (the default) is the key differentiator: paths cannot
+   cross a detected temporal gap, so a data closure is not assumed to be
+   transparent to transmission. Pass ``cross_gaps=True`` for standard
+   contact-sequence behaviour.
+
+.. autofunction:: temporal_reachability
+
+.. autofunction:: temporal_distances
+
+.. autofunction:: temporal_closeness
+
+.. autofunction:: temporal_efficiency
 
 Temporal gaps
 -------------
