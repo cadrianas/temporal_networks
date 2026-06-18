@@ -14,6 +14,7 @@ from temporal_networks.temporal_paths import (
     temporal_distances,
     temporal_closeness,
     temporal_efficiency,
+    temporal_betweenness,
 )
 
 
@@ -306,6 +307,106 @@ class TestErrorHandling(unittest.TestCase):
             out = f.getvalue()
         self.assertIn("Warning", out)
         self.assertTrue(df.empty)
+
+
+# ---------------------------------------------------------------------------
+# temporal_betweenness
+# ---------------------------------------------------------------------------
+
+def _betw(df, node):
+    return float(df[df["node"] == node]["betweenness"].iloc[0])
+
+
+class TestTemporalBetweenness(unittest.TestCase):
+
+    def test_chain_broker_value(self):
+        """0→1→2: node 1 is the sole broker.
+
+        From source 0 the only brokered pair is (0, 2) routed through 1,
+        contributing dependency 1. Normalised by (n-1)(n-2) = 2 → 0.5.
+        Nodes 0 and 2 broker nothing.
+        """
+        graphs, labels = _chain()
+        bt = temporal_betweenness(graphs, graph_labels=labels,
+                                  report_gaps=False)
+        self.assertEqual(_betw(bt, 1), 0.5)
+        self.assertEqual(_betw(bt, 0), 0.0)
+        self.assertEqual(_betw(bt, 2), 0.0)
+
+    def test_raw_unnormalized(self):
+        graphs, labels = _chain()
+        bt = temporal_betweenness(graphs, graph_labels=labels,
+                                  normalized=False, report_gaps=False)
+        # One brokered ordered pair (0→2) through node 1 → raw dependency 1
+        self.assertEqual(_betw(bt, 1), 1.0)
+
+    def test_output_columns(self):
+        graphs, labels = _chain()
+        bt = temporal_betweenness(graphs, graph_labels=labels,
+                                  report_gaps=False)
+        self.assertEqual(list(bt.columns), ["node", "betweenness"])
+
+    def test_sorted_descending(self):
+        graphs, labels = _chain()
+        bt = temporal_betweenness(graphs, graph_labels=labels,
+                                  report_gaps=False)
+        vals = list(bt["betweenness"])
+        self.assertEqual(vals, sorted(vals, reverse=True))
+
+    def test_two_nodes_all_zero(self):
+        """With n < 3 no intermediary is possible — all zeros."""
+        g0 = ig.Graph(n=2, edges=[(0, 1)])
+        bt = temporal_betweenness([g0], graph_labels=["t"], report_gaps=False)
+        self.assertTrue((bt["betweenness"] == 0.0).all())
+
+    def test_broker_highest(self):
+        """Longer chain 0→1→2→3: nodes 1 and 2 broker, ends do not."""
+        g0 = ig.Graph(n=4, edges=[(0, 1)])
+        g1 = ig.Graph(n=4, edges=[(1, 2)])
+        g2 = ig.Graph(n=4, edges=[(2, 3)])
+        bt = temporal_betweenness([g0, g1, g2],
+                                  graph_labels=["a", "b", "c"],
+                                  report_gaps=False)
+        self.assertGreater(_betw(bt, 1), 0.0)
+        self.assertGreater(_betw(bt, 2), 0.0)
+        self.assertEqual(_betw(bt, 0), 0.0)
+        self.assertEqual(_betw(bt, 3), 0.0)
+
+    def test_gap_blocks_brokerage(self):
+        """A broker that only works across a gap scores 0 when blocked."""
+        graphs, labels = _gap_chain()  # A-B at 2024-01, B-C at 2024-03
+        blocked = temporal_betweenness(graphs, graph_labels=labels,
+                                       cross_gaps=False, report_gaps=False)
+        allowed = temporal_betweenness(graphs, graph_labels=labels,
+                                       cross_gaps=True, report_gaps=False)
+        # Blocked: A cannot reach C, so B brokers nothing
+        self.assertEqual(_betw(blocked, "B"), 0.0)
+        # Allowed: B brokers the A→C path
+        self.assertGreater(_betw(allowed, "B"), 0.0)
+
+    def test_save_path_writes_pdf(self):
+        graphs, labels = _chain()
+        with tempfile.TemporaryDirectory() as tmp:
+            f = io.StringIO()
+            with contextlib.redirect_stdout(f):
+                temporal_betweenness(graphs, graph_labels=labels,
+                                     save_path=tmp, report_gaps=False)
+            files = os.listdir(tmp)
+        self.assertIn("temporal_betweenness.pdf", files)
+
+    def test_source_exception_warns_and_skips(self):
+        g0 = ig.Graph(n=3, edges=[(0, 1)])
+        with patch("temporal_networks.temporal_paths."
+                   "_foremost_paths_from_source",
+                   side_effect=Exception("boom")):
+            f = io.StringIO()
+            with contextlib.redirect_stdout(f):
+                bt = temporal_betweenness([g0], graph_labels=["t"],
+                                          report_gaps=False)
+            out = f.getvalue()
+        self.assertIn("Warning", out)
+        # All sources skipped → every node has zero betweenness
+        self.assertTrue((bt["betweenness"] == 0.0).all())
 
 
 if __name__ == "__main__":
