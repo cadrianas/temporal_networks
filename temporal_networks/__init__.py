@@ -27,6 +27,7 @@ __all__ = [
     "temporal_distances",
     "temporal_closeness",
     "temporal_efficiency",
+    "temporal_betweenness",
     "detect_change_points",
     "flag_anomalous_snapshots",
 ]
@@ -57,6 +58,7 @@ from .temporal_paths import (
     temporal_distances,
     temporal_closeness,
     temporal_efficiency,
+    temporal_betweenness,
 )
 from .change_points import (
     detect_change_points,

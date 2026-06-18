@@ -35,11 +35,13 @@ __all__ = [
     "temporal_distances",
     "temporal_closeness",
     "temporal_efficiency",
+    "temporal_betweenness",
 ]
 
 _REACH_COLS = ["source", "target", "reachable", "first_arrival_idx"]
 _DIST_COLS = ["source", "target", "latency"]
 _CLOSE_COLS = ["node", "closeness"]
+_BETW_COLS = ["node", "betweenness"]
 
 
 # ============================================================================
@@ -151,6 +153,70 @@ def _bfs_from_source(
                 reachable.add(v)
 
     return first_arrival
+
+
+def _foremost_paths_from_source(
+    graphs: List,
+    source,
+    gap_ends: Set[int],
+    cross_gaps: bool,
+) -> Tuple[List, Dict, Dict]:
+    """
+    Forward pass of temporal Brandes from ``source`` (foremost paths).
+
+    Sweeps the snapshot sequence once, recording — for the earliest-arrival
+    (foremost) time-respecting paths only — how many such paths reach each
+    node and which immediate predecessors lie on them. Waiting at a node is
+    permitted (``allow_wait`` is implicitly True), matching
+    :func:`temporal_closeness` / :func:`temporal_efficiency`.
+
+    Parameters
+    ----------
+    graphs : list of igraph.Graph
+        Temporal snapshots in order.
+    source : node key
+        Starting node (reached at step 0).
+    gap_ends : set of int
+        Snapshot indices that begin a new segment after a detected gap.
+    cross_gaps : bool
+        If False, foremost paths cannot cross a gap boundary.
+
+    Returns
+    -------
+    order : list
+        Node keys in the order their foremost arrival was finalised
+        (non-decreasing arrival step). Used to drive the backward pass.
+    preds : dict
+        ``{node: [predecessor keys]}`` on foremost paths.
+    sigma : dict
+        ``{node: number of foremost paths from source}`` as floats.
+    """
+    arrival: Dict = {source: 0}
+    sigma: Dict = {source: 1.0}
+    preds: Dict = {source: []}
+    reachable: Set = {source}
+    order: List = [source]
+
+    for t, graph in enumerate(graphs):
+        if not cross_gaps and t in gap_ends:
+            # Hard barrier: nothing from the previous segment carries over.
+            reachable = set()
+
+        for u, v in _edges_keyed(graph):
+            if u not in reachable:
+                continue
+            if v not in arrival:
+                arrival[v] = t + 1
+                sigma[v] = sigma[u]
+                preds[v] = [u]
+                reachable.add(v)
+                order.append(v)
+            elif arrival[v] == t + 1:
+                # Another foremost path to v in the same arrival layer.
+                sigma[v] += sigma[u]
+                preds[v].append(u)
+
+    return order, preds, sigma
 
 
 # ============================================================================
@@ -448,6 +514,128 @@ def temporal_efficiency(
     return float(inv.mean())
 
 
+def temporal_betweenness(
+    graphs: List,
+    graph_labels: Optional[List[str]] = None,
+    cross_gaps: bool = False,
+    normalized: bool = True,
+    save_path: Optional[str] = None,
+    report_gaps: bool = True,
+) -> pd.DataFrame:
+    """
+    Per-node temporal betweenness over time-respecting paths.
+
+    For every ordered source–target pair, the fraction of foremost
+    (earliest-arrival) time-respecting paths passing through each
+    intermediate node is accumulated, using a temporal adaptation of
+    Brandes' algorithm. A high value means a node frequently lies on the
+    quickest time-respecting routes between other nodes — a temporal
+    bottleneck or broker.
+
+    **Gap-aware (default):** with ``cross_gaps=False``, foremost paths
+    cannot cross a detected temporal gap, so a data closure never inflates
+    a node's brokerage. Pass ``cross_gaps=True`` to treat the sequence as
+    contiguous.
+
+    Parameters
+    ----------
+    graphs : list of igraph.Graph
+        Temporal snapshots in chronological order.
+    graph_labels : list of str, optional
+        Labels for each snapshot. If None, defaults to "Graph 1", etc.
+    cross_gaps : bool, optional
+        If False (default), paths are blocked at detected temporal gaps.
+    normalized : bool, optional
+        If True (default), divide by ``(n - 1) * (n - 2)`` (the number of
+        ordered pairs not involving the node), giving values in ``[0, 1]``.
+        If False, report raw pair-dependency sums.
+    save_path : str, optional
+        Directory for saving the betweenness bar-chart PDF. If None
+        (default), no file is saved.
+    report_gaps : bool, optional
+        If True (default), prints a temporal gap report to the console.
+
+    Returns
+    -------
+    pandas.DataFrame
+        One row per node with columns ``node`` and ``betweenness``,
+        sorted descending by betweenness. Returns an empty DataFrame with
+        the correct columns on empty input.
+
+    Notes
+    -----
+    Temporal paths are inherently directed by time, so each ordered
+    ``(source, target)`` pair is counted once (no factor-of-two halving as
+    in undirected static betweenness). "Foremost" paths are those achieving
+    the earliest arrival, consistent with the latency used by
+    :func:`temporal_distances` and :func:`temporal_closeness`.
+
+    Examples
+    --------
+    >>> import igraph as ig
+    >>> from temporal_networks import temporal_betweenness
+    >>> g0 = ig.Graph(n=3, edges=[(0, 1)])
+    >>> g1 = ig.Graph(n=3, edges=[(1, 2)])
+    >>> bt = temporal_betweenness([g0, g1], graph_labels=["t0", "t1"],
+    ...                            report_gaps=False)
+    >>> # Node 1 brokers the 0 -> 2 path; others broker nothing
+    >>> float(bt[bt["node"] == 1]["betweenness"].iloc[0])
+    0.5
+    >>> float(bt[bt["node"] == 0]["betweenness"].iloc[0])
+    0.0
+    """
+    graph_labels = validate_and_setup_graphs(graphs, graph_labels,
+                                             min_length=1)
+    if save_path is not None:
+        os.makedirs(save_path, exist_ok=True)
+
+    gap_info = detect_temporal_gaps(graph_labels)
+    if report_gaps:
+        print_gap_report(graph_labels, gap_info)
+    gap_ends = {g["end_idx"] for g in gap_info.get("gaps", [])}
+
+    try:
+        all_nodes = _union_nodes(graphs)
+    except Exception as e:
+        print(f"Warning: Could not collect node set: {e}")
+        return pd.DataFrame(columns=_BETW_COLS)
+
+    betweenness: Dict = {n: 0.0 for n in all_nodes}
+
+    for source in all_nodes:
+        try:
+            order, preds, sigma = _foremost_paths_from_source(
+                graphs, source, gap_ends, cross_gaps)
+            delta: Dict = {n: 0.0 for n in order}
+            # Reverse arrival order: accumulate dependencies leaf-to-root.
+            for w in reversed(order):
+                for u in preds.get(w, []):
+                    delta[u] += (sigma[u] / sigma[w]) * (1.0 + delta[w])
+                if w != source:
+                    betweenness[w] += delta[w]
+        except Exception as e:
+            print(f"Warning: Error computing betweenness from "
+                  f"{source}: {e}")
+            continue
+
+    n = len(all_nodes)
+    if normalized and n > 2:
+        scale = 1.0 / ((n - 1) * (n - 2))
+        betweenness = {k: v * scale for k, v in betweenness.items()}
+
+    df = (pd.DataFrame([{"node": k, "betweenness": v}
+                        for k, v in betweenness.items()])
+            .sort_values("betweenness", ascending=False)
+            .reset_index(drop=True))
+    if df.empty:
+        return pd.DataFrame(columns=_BETW_COLS)
+
+    if save_path is not None:
+        _plot_betweenness(df, save_path)
+
+    return df
+
+
 def _plot_closeness(df: pd.DataFrame, save_path: str) -> None:
     """
     Save a horizontal bar chart of temporal closeness values.
@@ -485,3 +673,42 @@ def _plot_closeness(df: pd.DataFrame, save_path: str) -> None:
 
     except Exception as e:
         print(f"Warning: Could not plot temporal closeness: {e}")
+
+
+def _plot_betweenness(df: pd.DataFrame, save_path: str) -> None:
+    """
+    Save a horizontal bar chart of temporal betweenness values.
+
+    Parameters
+    ----------
+    df : pandas.DataFrame
+        Output of :func:`temporal_betweenness`, sorted descending.
+    save_path : str
+        Directory where the PDF is saved.
+
+    Returns
+    -------
+    None
+    """
+    try:
+        nodes = [str(n) for n in df["node"]]
+        values = df["betweenness"].values
+
+        fig, ax = plt.subplots(figsize=(8, max(4, len(nodes) * 0.4)), dpi=100)
+        y_pos = np.arange(len(nodes))
+        ax.barh(y_pos, values, color='#d62728', edgecolor='black', alpha=0.8)
+        ax.set_yticks(y_pos)
+        ax.set_yticklabels(nodes, fontsize=10)
+        ax.set_xlabel("Temporal Betweenness", fontsize=13, fontweight='bold')
+        ax.set_title("Temporal Betweenness per Node",
+                     fontsize=14, fontweight='bold')
+        ax.set_xlim(0, max(values.max() * 1.1, 0.01))
+        plt.tight_layout()
+
+        path = os.path.join(save_path, "temporal_betweenness.pdf")
+        fig.savefig(path, dpi=300, bbox_inches='tight')
+        plt.close(fig)
+        print(f"✓ Plot saved: {path}")
+
+    except Exception as e:
+        print(f"Warning: Could not plot temporal betweenness: {e}")

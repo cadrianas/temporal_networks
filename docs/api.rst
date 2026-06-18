@@ -25,6 +25,7 @@ API Reference
    temporal_distances
    temporal_closeness
    temporal_efficiency
+   temporal_betweenness
    detect_change_points
    flag_anomalous_snapshots
 
@@ -95,6 +96,8 @@ Time-respecting paths
 .. autofunction:: temporal_closeness
 
 .. autofunction:: temporal_efficiency
+
+.. autofunction:: temporal_betweenness
 
 Change-point & anomaly detection
 ---------------------------------
