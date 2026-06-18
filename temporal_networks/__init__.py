@@ -27,6 +27,8 @@ __all__ = [
     "temporal_distances",
     "temporal_closeness",
     "temporal_efficiency",
+    "detect_change_points",
+    "flag_anomalous_snapshots",
 ]
 
 from .network_properties import network_properties
@@ -55,4 +57,8 @@ from .temporal_paths import (
     temporal_distances,
     temporal_closeness,
     temporal_efficiency,
+)
+from .change_points import (
+    detect_change_points,
+    flag_anomalous_snapshots,
 )
