@@ -44,6 +44,9 @@ docs = [
     "sphinx>=7.0",
     "furo>=2024.1.29",
 ]
+changepoint = [
+    "ruptures>=1.1",
+]
 
 [project.urls]
 Homepage = "https://github.com/cadrianas/temporal_networks"
