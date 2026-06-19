@@ -8,12 +8,16 @@ HTML, scalars -> a text summary) into an output directory so the results can
 be opened and checked by hand.
 
 Dataset (12 named nodes, communities L = n0..n5, R = n6..n11):
-- 17 snapshots spanning 2024-01 .. 2026-05 (29 months) split into FIVE
+- 19 snapshots spanning 2024-01 .. 2026-07 (31 months) split into FIVE
   segments by FOUR gaps of varying length (1, 3, 6 and 2 months),
-- broker snapshots (a single n5-n6 bridge in 2024-02 and again in 2025-02),
-- an in-segment community MERGE (2024-07) and SPLIT (2024-09), plus a
-  second MERGE (2025-12),
-- a sparse ANOMALY snapshot (2024-04),
+- a long gap-free opening segment (2024-01..06) carrying intermittent chord
+  edges whose irregular timing makes burstiness non-degenerate (a spread of
+  B values strictly between -1 and 0, alongside the always-on clique edges
+  at B = -1),
+- broker snapshots (a single n5-n6 bridge in 2024-02 and again in 2025-04),
+- an in-segment community MERGE (2024-09) and SPLIT (2024-11), plus a
+  second MERGE (2026-02),
+- a sparse ANOMALY snapshot (2025-06),
 - per-snapshot vertex shuffling so identity is tested by name.
 
 Run (writes to ./integration_results by default):
@@ -75,44 +79,91 @@ def _clique(nodes):
             for b in range(a + 1, len(nodes))]
 
 
-def _full_mix(nodes):
-    """Complete graph over all nodes (merged community)."""
-    return _clique(nodes)
+# Intermittent intra-community edges, each mapped to the snapshots on which it
+# is active. Their irregular within-segment timing makes the burstiness
+# distribution non-degenerate: a clique edge that fires every snapshot is
+# perfectly regular (B = -1), while these land strictly between -1 and 0.
+# All of these patterns live inside the long opening segment (2024-01..06),
+# which is gap-free so the intervals are not discarded as gap-spanning.
+SPORADIC = {
+    # L-community chords
+    ("n1", "n3"): {"2024-01", "2024-02", "2024-03", "2024-06"},  # 1,1,3
+    ("n2", "n4"): {"2024-01", "2024-04", "2024-06"},             # 3,2
+    ("n0", "n4"): {"2024-01", "2024-05", "2024-06"},             # 4,1
+    # R-community chords
+    ("n7", "n10"): {"2024-01", "2024-02", "2024-06"},            # 1,4
+    ("n8", "n11"): {"2024-02", "2024-03", "2024-06"},            # 1,3
+    ("n6", "n9"): {"2024-01", "2024-03", "2024-04", "2024-06"},  # 2,1,2
+}
+
+
+def _month(date: str) -> str:
+    """'2024-01-15' -> '2024-01' (the label snapshots_from_events emits)."""
+    return date[:7]
+
+
+def _dense(nodes, date):
+    """Clique over ``nodes``, dropping sporadic chords inactive on ``date``."""
+    month = _month(date)
+    out = []
+    for edge in _clique(nodes):
+        if edge in SPORADIC and month not in SPORADIC[edge]:
+            continue
+        out.append(edge)
+    return out
 
 
 def _build_events() -> pd.DataFrame:
     allnodes = L + R
-    two = _clique(L) + _clique(R)
-    schedule = {
-        # --- segment 1: two communities, a broker, then an anomaly ---
-        "2024-01-15": two,
-        "2024-02-15": two + [("n5", "n6")],   # broker bridge
-        "2024-03-15": two,
-        "2024-04-15": [("n0", "n1")],         # anomaly (structure collapses)
-        # GAP 1 (1 month): 2024-05 missing
-        # --- segment 2: an in-segment MERGE then SPLIT ---
-        "2024-06-15": two,
-        "2024-07-15": _full_mix(allnodes),    # merge -> one community
-        "2024-08-15": _full_mix(allnodes),
-        "2024-09-15": two,                    # split -> two communities
-        # GAP 2 (3 months): 2024-10, 2024-11, 2024-12 missing
-        # --- segment 3: two communities with a second broker ---
-        "2025-01-15": two,
-        "2025-02-15": two + [("n5", "n6")],   # broker bridge again
-        "2025-03-15": two,
-        "2025-04-15": two,
-        # GAP 3 (6 months): 2025-05 .. 2025-10 missing
+
+    # (date, kind). kind drives the snapshot's structure:
+    #   two     -> two communities (sporadic chords per their schedule)
+    #   broker  -> two communities + a single n5-n6 bridge
+    #   merge   -> one dense community over all nodes
+    #   anomaly -> structure collapses to a single edge
+    plan = [
+        # --- segment 1 (6 snapshots, gap-free): hosts the bursty chords ---
+        ("2024-01-15", "two"),
+        ("2024-02-15", "broker"),
+        ("2024-03-15", "two"),
+        ("2024-04-15", "two"),
+        ("2024-05-15", "two"),
+        ("2024-06-15", "two"),
+        # GAP 1 (1 month): 2024-07 missing
+        # --- segment 2: in-segment MERGE then SPLIT ---
+        ("2024-08-15", "two"),
+        ("2024-09-15", "merge"),
+        ("2024-10-15", "merge"),
+        ("2024-11-15", "two"),     # split
+        # GAP 2 (3 months): 2024-12, 2025-01, 2025-02 missing
+        # --- segment 3: two communities, a broker, then an anomaly ---
+        ("2025-03-15", "two"),
+        ("2025-04-15", "broker"),
+        ("2025-05-15", "two"),
+        ("2025-06-15", "anomaly"),
+        # GAP 3 (6 months): 2025-07 .. 2025-12 missing
         # --- segment 4: a second MERGE ---
-        "2025-11-15": two,
-        "2025-12-15": _full_mix(allnodes),    # merge -> one community
-        "2026-01-15": _full_mix(allnodes),
-        # GAP 4 (2 months): 2026-02, 2026-03 missing
+        ("2026-01-15", "two"),
+        ("2026-02-15", "merge"),
+        ("2026-03-15", "merge"),
+        # GAP 4 (2 months): 2026-04, 2026-05 missing
         # --- segment 5: back to two communities ---
-        "2026-04-15": two,
-        "2026-05-15": two,
-    }
+        ("2026-06-15", "two"),
+        ("2026-07-15", "two"),
+    ]
+
     rows = []
-    for date, edges in schedule.items():
+    for date, kind in plan:
+        if kind == "anomaly":
+            edges = [("n0", "n1")]
+        elif kind == "merge":
+            # Fully complete so the two communities unambiguously collapse
+            # into one (a near-complete graph can still split under louvain).
+            edges = _clique(allnodes)
+        else:  # two or broker
+            edges = _dense(L, date) + _dense(R, date)
+            if kind == "broker":
+                edges = edges + [("n5", "n6")]
         for src, tgt in edges:
             rows.append({"time": date, "source": src, "target": tgt})
     return pd.DataFrame(rows)
@@ -229,7 +280,16 @@ def main() -> None:
     burst = burstiness_coefficient(graphs, graph_labels=labels, by="edge",
                                    report_gaps=False, save_path=outdir)
     _cover("burstiness_coefficient")
+    # Show the spread, not just the degenerate B = -1 backbone.
+    burst = burst.sort_values("burstiness").reset_index(drop=True)
     _save(burst, "burstiness", outdir)
+    b_dist = burst["burstiness"].round(3).value_counts().sort_index()
+    print("\nBurstiness distribution (rounded B -> #edges):")
+    print(b_dist.to_string())
+    _SCALARS.append(
+        f"burstiness distinct values = {burst['burstiness'].nunique()}, "
+        f"range = [{burst['burstiness'].min():.3f}, "
+        f"{burst['burstiness'].max():.3f}]")
 
     # ---- temporal paths -------------------------------------------------
     reach = temporal_reachability(graphs, graph_labels=labels)
@@ -306,7 +366,7 @@ def main() -> None:
     print("=" * 72)
 
     # Hand-checkable invariants across the FOUR gaps.
-    re_entry = ["2024-06", "2025-01", "2025-11", "2026-04"]
+    re_entry = ["2024-08", "2025-03", "2026-01", "2026-06"]
     nan_rows = sim[sim["jaccard"].isna()]["Graph"].tolist()
     print("\nChecks:")
     print(f"  gaps detected: {gap_info['num_gaps']}")
@@ -314,17 +374,26 @@ def main() -> None:
     assert gap_info["num_gaps"] == 4, "expected exactly four gaps"
     assert all(lbl in nan_rows for lbl in re_entry), \
         "every gap re-entry should yield NaN similarity"
-    assert "2024-04" in set(flags["label"]), "anomaly 2024-04 not flagged"
-    assert "merge" in set(track[track["Graph"] == "2024-07"]["event"]), \
-        "expected a merge at 2024-07"
-    assert "split" in set(track[track["Graph"] == "2024-09"]["event"]), \
-        "expected a split at 2024-09"
-    assert "merge" in set(track[track["Graph"] == "2025-12"]["event"]), \
-        "expected a second merge at 2025-12"
+    assert "2025-06" in set(flags["label"]), "anomaly 2025-06 not flagged"
+    assert "merge" in set(track[track["Graph"] == "2024-09"]["event"]), \
+        "expected a merge at 2024-09"
+    assert "split" in set(track[track["Graph"] == "2024-11"]["event"]), \
+        "expected a split at 2024-11"
+    assert "merge" in set(track[track["Graph"] == "2026-02"]["event"]), \
+        "expected a second merge at 2026-02"
+    n_regular = int((burst["burstiness"] == -1.0).sum())
+    n_irregular = int((burst["burstiness"] > -1.0).sum())
+    assert burst["burstiness"].nunique() >= 4 and n_irregular >= 5, \
+        "burstiness should be non-degenerate (not all -1)"
+    assert float(burst[burst["entity"] == "('n0', 'n1')"]
+                 ["burstiness"].iloc[0]) == -1.0, \
+        "the always-on edge (n0,n1) should be perfectly regular (B=-1)"
     print("  [OK] four gaps, each producing NaN similarity at re-entry")
-    print("  [OK] anomaly 2024-04 flagged")
-    print("  [OK] merge at 2024-07, split at 2024-09, merge at 2025-12 "
+    print("  [OK] anomaly 2025-06 flagged")
+    print("  [OK] merge at 2024-09, split at 2024-11, merge at 2026-02 "
           "tracked")
+    print(f"  [OK] burstiness non-degenerate: {n_irregular} irregular edges "
+          f"(B > -1), {n_regular} perfectly regular (B = -1)")
 
     print(f"\nAll files saved under: {os.path.abspath(outdir)}")
     files = sorted(os.listdir(outdir))
