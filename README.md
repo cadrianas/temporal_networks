@@ -139,6 +139,10 @@ no false continuity is implied.
 
 ## Tutorials
 
+- [Full integration walkthrough](examples/example_full_integration.py) —
+  one non-trivial temporal network (two communities, a broker snapshot, an
+  anomaly, and a gap) threaded through **every** public function, with
+  asserted invariants
 - [New features walkthrough](examples/example_specs_01_02_03.py) —
   ingestion, snapshot stability, and burstiness on a named-node sequence
   with a deliberate gap
@@ -150,11 +154,16 @@ no false continuity is implied.
 To reproduce the synthetic results and gap-aware visualizations:
 
 ```bash
+python examples/example_full_integration.py
 python examples/example_specs_01_02_03.py
 python examples/example_1_synthetic.py
 ```
 
-`example_specs_01_02_03.py` exercises the ingestion, stability, and
+`example_full_integration.py` runs every public function on one shared
+synthetic dataset and asserts hand-checkable invariants (the gap pair is
+`NaN`, the known broker has the highest temporal betweenness, the injected
+anomaly is flagged). `example_specs_01_02_03.py` exercises the ingestion,
+stability, and
 burstiness modules on a small reproducible dataset and prints all results
 to stdout. `example_1_synthetic.py` runs the full suite of analyses on
 hub-and-spoke networks and saves comparative visualizations to `plots/`.
