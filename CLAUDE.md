@@ -12,7 +12,7 @@ reproducible, and professionally presentable.
 
 ## Audit focus areas
 
-Ignore CVE/vulnerability checks. Focus on the following seven areas.
+Ignore CVE/vulnerability checks. Focus on the following eight areas.
 
 ---
 
@@ -108,6 +108,47 @@ The quickstart must satisfy all of the following:
 - Random seeds are set explicitly where any stochastic operation is used, so the output
   is reproducible.
 - It matches the installation instructions in the README (see README checklist below).
+
+---
+
+### 8. End-to-end toy-example coverage
+
+Beyond the unit tests, there must be a single runnable toy example (script or notebook)
+that exercises **every public function** the package exports, end to end, on one shared
+synthetic dataset. The goal is an integration smoke test that would catch wiring bugs the
+isolated unit tests miss (broken imports, signature drift, incompatible output schemas
+between functions that are meant to compose).
+
+Requirements:
+
+- **Full coverage.** Every name in the top-level `__all__` / public API is called at
+  least once. Flag any public function that the toy example never touches.
+- **One shared, non-trivial dataset.** The example must NOT use a different toy graph for
+  each function. Build one temporal network sequence and pass it through all functions, so
+  output of one stage can feed the next (e.g. ingestion -> snapshots -> path/community/
+  burstiness metrics). This proves the functions actually interoperate.
+- **Deliberately non-easy.** The dataset must be hard enough to make the metrics
+  meaningful and to stress the gap-handling and node-identity machinery. Concretely it
+  should include:
+  - at least ~8-12 nodes and 6+ snapshots,
+  - **named vertices whose order is shuffled between snapshots** (so node identity is
+    tested, not index alignment),
+  - **at least one genuine temporal gap** in the labels (a skipped period),
+  - structural change over time that the metrics should detect (e.g. a community
+    merge/split, a burst of activity, or an anomalous snapshot),
+  - a mix that is not fully connected and not trivially regular (so reachability,
+    burstiness, and change-points return non-degenerate values).
+  A two-node, two-snapshot line graph is explicitly NOT acceptable.
+- **Reproducible.** Seed every RNG (`random.Random(...)` and
+  `ig.set_random_number_generator(...)`), convert any relative dates to absolute, and
+  assert a few hand-checkable invariants (e.g. the gap pair is `NaN`, the known broker has
+  the highest temporal betweenness, the injected anomaly is flagged) rather than only
+  printing shapes.
+- **Runs from an installed package**, not just from the repo root, and finishes in well
+  under a minute.
+
+Flag, per public function: covered / not covered. Flag the dataset if it is too easy
+(no gap, no shuffled identity, no structural change) to be a meaningful integration test.
 
 ---
 
