@@ -5,86 +5,12 @@ This module provides functions for creating interactive animated visualizations
 of how community structures change over time in networks.
 """
 
-import igraph as ig
 import plotly.graph_objs as go
 from plotly.offline import plot
 import random
-from typing import List, Tuple, Any
+from typing import List, Any
 from ._gap_utilities import validate_and_setup_graphs
-
-
-def _detect_communities(graphs: List,
-                        community_algorithm: str) -> Tuple[List[Any], str]:
-    """
-    Detect communities for each graph using the chosen algorithm.
-
-    Parameters
-    ----------
-    graphs : list of igraph.Graph
-        Graphs on which to run community detection.
-    community_algorithm : str
-        Name of the community detection algorithm to apply.
-
-    Returns
-    -------
-    tuple of (list, str)
-        The per-graph partitions (None where detection failed) and the
-        capitalized algorithm name.
-    """
-    # Map algorithm names to igraph functions
-    algorithm_map = {
-        "edge_betweenness": ig.Graph.community_edge_betweenness,
-        "walktrap": ig.Graph.community_walktrap,
-        "fast_greedy": ig.Graph.community_fastgreedy,
-        "label_prop": ig.Graph.community_label_propagation,
-        "spinglass": ig.Graph.community_spinglass,
-        "leiden": ig.Graph.community_leiden,
-        "louvain": ig.Graph.community_multilevel,
-    }
-
-    if community_algorithm.lower() not in algorithm_map:
-        raise ValueError(f"Unknown algorithm: {community_algorithm}. "
-                        f"Must be one of: {list(algorithm_map.keys())}")
-
-    algo_func = algorithm_map[community_algorithm.lower()]
-    algo_name = community_algorithm.capitalize()
-
-    print(f"Computing community evolution with {algo_name} algorithm...")
-
-    communities_list: List[Any] = []
-    for graph_idx, graph in enumerate(graphs):
-        try:
-            g = graph.copy()
-            # Modularity-based algorithms only operate on undirected graphs.
-            if g.is_directed() and community_algorithm.lower() in ["walktrap",
-                                                                    "fast_greedy",
-                                                                    "label_prop",
-                                                                    "spinglass",
-                                                                    "louvain",
-                                                                    "leiden"]:
-                g = g.as_undirected()
-
-            try:
-                # walktrap, fast_greedy and edge_betweenness return a
-                # VertexDendrogram that must be cut into a flat clustering.
-                if community_algorithm.lower() in ["walktrap", "fast_greedy",
-                                                   "edge_betweenness"]:
-                    partition = algo_func(g).as_clustering()
-                else:
-                    partition = algo_func(g)
-            except Exception as e:
-                print(f"  Warning: Community detection failed for "
-                      f"graph {graph_idx}: {e}")
-                communities_list.append(None)
-                continue
-
-            communities_list.append(partition)
-
-        except Exception as e:
-            print(f"  Warning: Error processing graph {graph_idx}: {e}")
-            communities_list.append(None)
-
-    return communities_list, algo_name
+from ._community_utils import _detect_communities
 
 
 def plot_community_evolution(graphs: List,
