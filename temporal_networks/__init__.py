@@ -30,6 +30,8 @@ __all__ = [
     "temporal_betweenness",
     "detect_change_points",
     "flag_anomalous_snapshots",
+    "track_communities",
+    "plot_community_lineage",
 ]
 
 from .network_properties import network_properties
@@ -63,4 +65,8 @@ from .temporal_paths import (
 from .change_points import (
     detect_change_points,
     flag_anomalous_snapshots,
+)
+from .community_tracking import (
+    track_communities,
+    plot_community_lineage,
 )

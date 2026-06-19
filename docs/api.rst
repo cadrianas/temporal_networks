@@ -28,6 +28,8 @@ API Reference
    temporal_betweenness
    detect_change_points
    flag_anomalous_snapshots
+   track_communities
+   plot_community_lineage
 
 Data ingestion
 --------------
@@ -105,6 +107,13 @@ Change-point & anomaly detection
 .. autofunction:: detect_change_points
 
 .. autofunction:: flag_anomalous_snapshots
+
+Community tracking
+------------------
+
+.. autofunction:: track_communities
+
+.. autofunction:: plot_community_lineage
 
 Temporal gaps
 -------------
