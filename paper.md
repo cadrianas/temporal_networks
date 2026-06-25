@@ -8,318 +8,227 @@ tags:
   - time series networks
   - community detection
   - centrality measures
-  - epidemiology
-  - transportation networks
 authors:
   - name: Adriana-Stefania Ciupeanu
     orcid: 0000-0003-0833-2176
     equal-contrib: true
     affiliation: 1
- - name: Julien Arino
+  - name: Julien Arino
     orcid: 0000-0001-6409-5027
     equal-contrib: true
     affiliation: 1
 affiliations:
   - name: Department of Mathematics, University of Manitoba, Winnipeg, MB, Canada
     index: 1
-date: 
- - 09 March 2026
-bibliography: 
- - paper.bib
+date: 9 March 2026
+bibliography: paper.bib
 ---
 
 # Summary
 
-`temporal_networks` is a Python package designed for **temporal network analysis**—understanding how network structure and properties evolve over time. Unlike general-purpose libraries (igraph, NetworkX) that analyze individual graphs and require users to build temporal infrastructure themselves, this package automatically handles the temporal dimension, temporal metrics, temporal visualization, and crucially, **temporal gaps** (missing time periods in the data). The package computes comprehensive temporal network metrics—centrality trajectories, community evolution across 7 algorithms, edge formation/dissolution dynamics, and individual node property tracking—while automatically detecting and correctly visualizing temporal gaps as visual breaks rather than false continuity lines. This capability is critical for real-world applications where networks have seasonal closures (tourism networks, education networks), maintenance windows (infrastructure systems), crisis-driven interruptions (disease networks during lockdowns), or multi-phase observation periods.
+`temporal_networks` is a Python package for **temporal network analysis** — the
+study of how network structure and properties evolve over time [@holme2012temporal].
+A temporal network is represented as an ordered sequence of graph snapshots, each
+carrying a time label (for example `2024-03`). Unlike general-purpose graph
+libraries such as `python-igraph` [@csardi2006igraph] and NetworkX
+[@hagberg2008networkx], which operate on a single static graph at a time, the
+package treats time as a first-class dimension: it ingests raw event streams into
+snapshots, tracks node identity across snapshots whose vertex order may differ, and
+computes temporal metrics that summarise change over the whole sequence.
+
+Its distinguishing feature is the explicit, automatic handling of **temporal gaps**
+— periods that are missing from the observation window (seasonal closures,
+maintenance windows, crisis-driven interruptions, or multi-phase study designs).
+The package detects gaps directly from the time labels and propagates that
+information into every metric and plot, so that visualisations show genuine breaks
+rather than drawing misleading continuous lines across the missing interval. It
+provides per-snapshot structural properties, node-level centralities, seven
+community-detection algorithms and a community-tracking layer, vertex trajectory
+tracking, edge formation/dissolution dynamics, inter-event burstiness, temporal
+reachability and betweenness metrics over time-respecting paths, and change-point
+and anomaly detection across the sequence.
 
 # Statement of Need
 
-Temporal network analysis has become essential for understanding dynamic systems across diverse domains: epidemiological models of disease spread during phases with different containment measures, transportation networks that operate seasonally or have crisis-driven interruptions, social network dynamics around major events, infrastructure system monitoring with maintenance windows, and biological networks across developmental stages. However, temporal network analysis is fundamentally different from static graph analysis, and current tools do not adequately address this difference.
+Temporal network analysis is increasingly central to understanding dynamic systems
+across domains: epidemiological contact networks observed across phases with
+different containment measures, transportation networks with seasonal service or
+crisis-driven disruptions, infrastructure systems with maintenance windows, and
+biological or social networks observed across discrete stages. Yet the analysis of
+a *sequence* of networks differs fundamentally from the analysis of a single graph,
+and widely used tools do not close that gap on their own.
 
-## The Temporal Paradigm Problem
+## The temporal-paradigm problem
 
-Existing libraries like `python-igraph` (Csárdi & Nepusz, 2006) and `NetworkX` (Hagberg et al., 2008) are designed to analyze **individual graphs**. When researchers have temporal network data (a sequence of networks over time), they must:
+Libraries such as `python-igraph` [@csardi2006igraph] and NetworkX
+[@hagberg2008networkx] are designed around individual graphs. Given a temporal
+sequence, a researcher must build the temporal scaffolding themselves: align node
+identity across snapshots, track a metric across time, aggregate per-snapshot
+results, and produce trajectory plots. Dedicated temporal-network tools exist —
+`teneto` targets time-varying connectivity with a focus on neuroimaging
+[@thompson2017teneto], and `dynetx` models dynamic graphs as a stream of
+interactions [@rossetti2020dynetx] — but neither makes the handling of *missing
+observation periods* an explicit, default part of every metric and visualisation,
+which is the recurring practical obstacle in applied temporal-network work.
 
-1. **Build temporal infrastructure themselves** - There is no standard way to track time across analyses, compare networks at different time points, or aggregate temporal results
-2. **Manually handle temporal gaps** - When data has missing periods (seasonal closures, maintenance windows, observation interruptions), users must remember to:
-   - Identify where gaps occur
-   - Handle gap-specific visualizations (avoiding false continuity lines)
-   - Document gaps in analysis
-   - Interpret results accounting for gaps
-3. **Create custom temporal visualization** - Plotting how network properties change over time is left to the user
-4. **Implement temporal metrics** - Metrics like "how many edges formed this month?" or "how did this node's importance change?" must be custom-coded
+## The concrete failure mode: false continuity across gaps
 
-## The Real Problem: False Continuity Lines
+A subtle but consequential problem arises in visualisation. When a metric is
+plotted against snapshot index, naive plotting connects consecutive snapshots even
+when a real temporal gap separates them. A bike-sharing network operating
+March–August and again November–February, for instance, has a three-month
+operational gap; an index-based line plot draws an August-to-November segment that
+implies a transition which never occurred. The same issue distorts any trajectory
+metric and any animation. Standard graph libraries do not guard against it — the
+burden falls on the user to detect the gap and special-case the plotting.
 
-A subtle but serious issue arises from naive visualization: **index-based plotting creates false continuity lines across temporal gaps**. For example, a bike-sharing system operating Mar-Aug and Nov-Feb (summer + winter, 3-month operational gap) would appear to show network transitions from August to November if plotted naively with index-based connection. This creates an illusion of network dynamics that did not actually occur, misleading both analysts and readers. Standard approaches (igraph, NetworkX) do not prevent this; users must manually handle it.
+## The approach taken here
 
-## The Solution: Temporal Networks
+`temporal_networks` makes gap handling automatic and transparent:
 
-`temporal_networks` approaches this problem fundamentally differently. Rather than viewing temporal network analysis as "static graph analysis repeated N times," it makes **temporal analysis**:
+- **Time-aware by construction.** Snapshot labels (`2024-03`, `2024-08`,
+  `2024-11`) drive the analysis rather than serving as decoration.
+- **Automatic gap detection** from the labels, with support for monthly, daily,
+  weekly, quarterly, and annual formats and a configurable threshold.
+- **Gap-aware plotting** in every visualisation: continuous segments are drawn
+  separately, so missing periods appear as breaks.
+- **Identity-aware metrics** that match vertices by name across snapshots whose
+  vertex order may be shuffled, so node-level trajectories remain correct.
+- **Transparent reporting** that prints where gaps occur and how they affect
+  interpretation, rather than silently hiding them.
 
-- **Temporal awareness is built-in** - The package knows about time; labels like "2024-03", "2024-08", "2024-11" are not just metadata but central to analysis
-- **Automatic gap detection** - No manual specification; flexible datetime format support (YYYY-MM, YYYY-MM-DD, YYYY-W##, YYYY-Q#, YYYY)
-- **Automatic gap handling** - All visualizations automatically use gap-aware plotting with visual breaks
-- **Temporal metrics** - Edge dynamics (formation/dissolution), community evolution, vertex trajectories
-- **Transparent reporting** - Users explicitly see where gaps are and their implications
+This yields a systematic workflow in which gaps are handled correctly by default
+and the user is always told about the structure of their data.
 
-This creates a systematic, scientific approach to temporal network analysis where gaps are handled correctly by default, and users receive clear information about their data structure.
+# Functionality
 
-# Implementation
+The public API is organised into ingestion, per-snapshot metrics, time-spanning
+metrics, change detection, and visualisation. All names below are exported from the
+top-level package.
 
-## Core Architecture
+**Ingestion and gap detection.** `snapshots_from_events` and
+`snapshots_from_edgelist` build a snapshot sequence from a raw event table or
+edge list, binning by a chosen time frequency. `detect_temporal_gaps` parses the
+resulting labels, computes the spacing between consecutive snapshots, and returns
+the gaps together with the continuous segments used downstream for gap-aware
+plotting.
 
-The package consists of six main analysis modules plus a gap-detection framework:
+**Per-snapshot structure and centrality.** `network_properties` returns
+structural metrics per snapshot (counts, density, diameter, average path length,
+clustering, reciprocity, components). `calculate_centralities` computes a suite of
+node-level centralities (degree, closeness, betweenness, eigenvector, PageRank,
+harmonic, eccentricity, Burt's constraint, hub and authority scores) for every
+snapshot, and `vertex_properties` tracks the full trajectory of a named node.
 
-### Gap Detection Framework (`_gap_utilities.py`)
+**Communities.** `communities_measures` applies seven community-detection
+algorithms — including Leiden [@traag2019leiden], Louvain [@blondel2008louvain],
+Walktrap, fast-greedy, label propagation, spinglass, and Infomap — to each
+snapshot and reports assignments, summary statistics, and modularity.
+`track_communities` and `plot_community_lineage` follow communities across
+snapshots to expose merges, splits, births, and deaths.
 
-The foundation is a flexible gap detection system supporting multiple datetime formats:
+**Edge and stability dynamics.** `compute_edge_dynamics`, `edge_formation`,
+`edge_dissolution`, and `plot_edge_dynamics` quantify which edges appear and
+disappear between consecutive snapshots. `snapshot_similarity` and
+`temporal_correlation_coefficient` measure how much structure persists from one
+snapshot to the next.
 
-- Monthly: `YYYY-MM` (e.g., "2024-03")
-- Daily: `YYYY-MM-DD` (e.g., "2024-03-15")  
-- Weekly: `YYYY-W##` (e.g., "2024-W12")
-- Quarterly: `YYYY-Q#` (e.g., "2024-Q2")
-- Annual: `YYYY` (e.g., "2024")
+**Burstiness.** `inter_event_times` and `burstiness_coefficient` characterise
+whether activity is regular, Poisson-like, or bursty, using the burstiness measure
+of @goh2008burstiness.
 
-The `detect_temporal_gaps(graph_labels, gap_threshold=1, unit="months")` function:
-1. Parses temporal labels in any format
-2. Calculates time differences between consecutive labels
-3. Identifies gaps exceeding the threshold (default: 1 unit)
-4. Returns gap details and continuous segments for downstream functions
+**Time-respecting paths.** `temporal_reachability`, `temporal_distances`,
+`temporal_closeness`, `temporal_efficiency`, and `temporal_betweenness` operate
+over time-ordered paths, so that reachability and brokerage respect the arrow of
+time rather than treating the aggregated graph as static.
 
-```python
-gap_info = detect_temporal_gaps(labels, gap_threshold=1, unit="months")
-# Returns: {
-#   "has_gaps": bool,
-#   "num_gaps": int,
-#   "gaps": [{"start_idx": ..., "end_idx": ..., "start_label": ..., 
-#             "end_label": ..., "gap_size": ...}],
-#   "segments": [(0, 6), (9, 10)]  # Continuous periods
-# }
-```
+**Change and anomaly detection.** `detect_change_points` locates structural shifts
+in a metric trajectory (optionally using the `ruptures` change-point methods of
+@truong2020ruptures), and `flag_anomalous_snapshots` highlights snapshots that
+deviate from the surrounding sequence.
 
-All downstream functions use these segments for correct plotting via `plot_with_gap_handling()`, which draws separate line segments for each continuous period rather than connecting across gaps.
+**Gap-aware visualisation.** Every plotting routine — including
+`plot_community_evolution`, `plot_edge_dynamics`, and `plot_community_lineage` —
+draws separate line segments for each continuous period, so visual breaks indicate
+missing data rather than implying continuity across a gap.
 
-### Network Properties (`network_properties()`)
-
-Computes structural metrics for each temporal snapshot:
-- Node and edge counts
-- Network density
-- Diameter and average path length
-- Clustering coefficient
-- Reciprocity (for directed networks)
-- Connectivity components
-
-Returns a DataFrame with one row per time step and automatically reports temporal gaps.
-
-### Centrality Measures (`calculate_centralities()`)
-
-Computes 13 node-level centrality scores for each time step:
-- Degree centrality
-- Closeness centrality  
-- Betweenness centrality
-- Eigenvector centrality
-- PageRank
-- Harmonic centrality
-- Eccentricity
-- Constraint (Burt's constraint)
-- Hub and authority scores
-
-Returns a DataFrame with one row per node per time step, tracking how individual node importance evolves. Optional parameter enables temporal visualization of centrality trajectories with gap-aware plotting.
-
-### Community Detection (`communities_measures()`)
-
-Applies seven community detection algorithms to each snapshot:
-- Leiden (most modern)
-- Louvain (widely-used)
-- Walktrap (short random walks)
-- Fast Greedy (optimization-based)
-- Label Propagation (iterative)
-- Spinglass (simulated annealing)
-- Infomap (information-theoretic)
-
-For each algorithm, returns:
-1. Node-to-community assignments
-2. Summary statistics (number of communities, size distribution, modularity)
-3. Gap-aware plots showing community evolution
-
-This enables users to assess algorithm stability and choose appropriate methods for their networks.
-
-### Vertex Properties (`vertex_properties()`)
-
-Tracks how properties of specific nodes change over time. Computes the complete suite of centrality measures plus:
-- Local clustering coefficient
-- Coreness (k-core decomposition)
-- Network constraint
-
-Generates individual plots for each metric plus combined visualization with normalized values for comparing multiple metrics.
-
-### Edge Dynamics (`edge_formation_dissolution()`)
-
-Analyzes which edges appear (formation) and disappear (dissolution) between consecutive time steps:
-- Absolute counts of new and deleted edges
-- Percentage changes relative to network size
-- Identifies periods of high network churn vs. stability
-
-Useful for understanding network turnover and identifying critical transition points.
-
-### Community Evolution (`plot_community_evolution()`)
-
-Generates interactive HTML visualization of community dynamics. Includes pragmatic gap handling: when temporal gaps are detected, prints a warning and recommends using static plots from `communities_measures()` (which visualize gaps correctly) rather than potentially misleading interactive animations.
-
-## Gap-Aware Visualization
-
-The key innovation is gap-aware plotting:
+# Example usage
 
 ```python
-def plot_with_gap_handling(ax, graph_labels, y_values, gap_segments, ...):
-    """Plot separate line segments for continuous periods only."""
-    for segment_start, segment_end in gap_segments:
-        x_indices = np.arange(segment_start, segment_end)
-        y_segment = [y_values[i] for i in x_indices]
-        ax.plot(x_indices, y_segment, ...)  # Separate segment
-```
-
-This draws separate line segments for each continuous time period. When data has gaps, visual breaks clearly indicate missing data rather than suggesting (false) network continuity.
-
-**Comparison:**
-- **Without gap handling:** Index-based plotting `ax.plot(range(n), y_values)` connects all points, creating false lines across temporal gaps
-- **With gap handling:** Only connects points within continuous periods, showing visual breaks where data is missing
-
-## Transparent Gap Reporting
-
-All functions include automatic gap reporting printed to console:
-
-```
-================================================================================
-TEMPORAL DATA STRUCTURE ANALYSIS
-================================================================================
-
-Dataset Overview:
-  Number of observations: 10
-  Time unit: months
-  Date range: 2024-03 to 2025-02
-
-⚠ Data has GAPS: 1 gap(s) detected
-
-  Gap #1:
-    From: 2024-08 (index 5)
-    To:   2024-11 (index 6)
-    Size: 3.0 months
-
-Impact on Temporal Visualization:
-  ✓ Plots show SEPARATE LINE SEGMENTS for each continuous period
-  ✓ No lines are drawn across gaps
-  ✓ Visual breaks indicate where data is missing
-================================================================================
-```
-
-This transparency ensures users understand their data structure and can make informed interpretations.
-
-# Features
-
-| Feature | Details |
-|---------|---------|
-| **Automatic gap detection** | No manual specification; supports 5 datetime formats |
-| **Flexible thresholds** | Configurable gap_threshold and time units (days/weeks/months/years) |
-| **Clear reporting** | Console output showing gap locations, sizes, and implications |
-| **Correct visualization** | Gap-aware plotting built into all functions |
-| **Comprehensive metrics** | 13 centrality measures, 7 community algorithms, edge dynamics, vertex tracking |
-| **Production testing** | 40+ unit tests for core functionality |
-| **Scientific transparency** | All gap information available for analysis and reporting |
-| **Flexible input** | Works with any temporal network data with temporal labels |
-
-# Example Usage
-
-## Continuous Network Data (No Gaps)
-
-```python
+import random
+import pandas as pd
 import igraph as ig
-from temporal_networks import network_properties, communities_measures
+from temporal_networks import (
+    snapshots_from_events,
+    snapshot_similarity,
+    burstiness_coefficient,
+)
 
-# Create 12 months of continuous network snapshots
-graphs = [ig.Graph.Barabasi(n=50, m=2) for _ in range(12)]
-labels = ["2024-01", "2024-02", ..., "2024-12"]
+# A raw event stream; the month 2024-05 is absent from the data.
+events = pd.DataFrame({
+    "time":   ["2024-01", "2024-01", "2024-02", "2024-03",
+               "2024-03", "2024-04", "2024-06", "2024-06"],
+    "source": ["A", "B", "A", "B", "A", "A", "B", "A"],
+    "target": ["B", "C", "C", "C", "C", "B", "C", "C"],
+})
 
-# Analyze network properties
-props = network_properties(graphs, graph_labels=labels)
-# Output: "✓ Data is CONTINUOUS (no gaps detected)"
-# Creates: plots with smooth lines connecting all months
-# Saves: results to CSV
+# Build snapshots; the May gap is inferred automatically from the labels.
+graphs, labels = snapshots_from_events(
+    events, time_col="time", source_col="source", target_col="target"
+)
 
-# Analyze communities
-communities = communities_measures(graphs, graph_labels=labels)
-# Output: Multiple plots showing community evolution
+# How much structure persists between consecutive snapshots?
+sim = snapshot_similarity(graphs, graph_labels=labels)
+
+# Is activity bursty or regular?
+bdf = burstiness_coefficient(graphs, graph_labels=labels)
 ```
 
-## Seasonal Network with Gaps
+The similarity and burstiness tables returned here leave the across-gap pair
+uncompared (reported as `NaN`) rather than fabricating a transition across the
+missing month. Stochastic examples in the documentation seed both `random` and the
+igraph RNG so that results are reproducible.
 
-```python
-# Bike-sharing network: operates Mar-Aug (summer) and Nov-Feb (winter)
-graphs = [ig.Graph.Barabasi(n=50, m=2) for _ in range(10)]
-labels = ["2024-03", "2024-04", "2024-05", "2024-06", "2024-07", "2024-08",
-          "2024-11", "2024-12", "2025-01", "2025-02"]
+# Quality control
 
-# Analyze properties
-props = network_properties(graphs, graph_labels=labels)
-# Output: 
-#   ⚠ Data has GAPS: 1 gap(s) detected
-#   Gap #1: From 2024-08 to 2024-11, Size: 3.0 months
-# Creates: plots with visual break between summer and winter
-# Interpretation: Avoids false dynamics in Aug-Nov transition
-```
+The package ships with a `pytest` suite of more than 150 unit tests across 14
+modules, exercised in continuous integration on Python 3.9–3.12, together with
+`ruff` linting and `mypy` type checking. An end-to-end integration example passes a
+single, deliberately non-trivial synthetic temporal network — with named vertices
+whose order is shuffled between snapshots, a genuine temporal gap, and injected
+structural change — through every public function and asserts hand-checkable
+invariants, providing an integration smoke test that complements the isolated unit
+tests.
 
-## Track Individual Node Importance
+# Motivating application domains
 
-```python
-from temporal_networks import vertex_properties
+The design is driven by recurring patterns in applied temporal-network analysis,
+including epidemiological contact networks observed across containment phases,
+transportation networks with seasonal or crisis-driven service gaps, infrastructure
+systems with maintenance windows, and biological or social networks observed across
+discrete stages. The synthetic examples distributed with the package illustrate
+these patterns; they are designed to be reproducible rather than to stand in for
+validated empirical datasets.
 
-# Track one node's importance over time
-props = vertex_properties(graphs, node_name="Node_5", graph_labels=labels)
-# Returns: DataFrame with node's centrality across all time steps
-# Creates: Individual plots for each centrality measure
-# Gap-aware: Shows where node disappears/reappears seasonally
-```
+# Limitations and future work
 
-# Applications
+Current limitations include reduced effectiveness of interactive HTML animations on
+heavily gapped data (static plots are recommended), the requirement that some
+community-detection algorithms operate on undirected graphs, and performance
+considerations on very large graphs. Planned work includes parallel processing for
+long sequences, support for heterogeneous node and edge types, richer interactive
+gap annotation, temporal-motif analysis, and optional gap imputation.
 
-The package has been validated on real-world datasets from multiple domains:
+# Availability
 
-1. **Epidemiological Networks** - COVID-19 contact networks with lockdown/reopening cycles
-2. **Transportation Networks** - Flight networks with seasonal patterns and crisis disruptions
-3. **Infrastructure Systems** - Bike-sharing networks with seasonal operation windows
-4. **Biological Networks** - Temporal protein interaction networks across development
-5. **Social Networks** - Event-driven dynamics with inter-event gaps
-
-
-# Documentation and Accessibility
-
-Complete documentation includes:
-
-- **API documentation** - Docstrings with examples for all functions
-- **Quick reference guide** - One-page implementation cheat sheet
-- **Testing guide** - Instructions for running local tests and CI/CD
-- **Example scripts** - Working code with continuous and gapped data
-- **JOSS paper** - This manuscript describing motivation and implementation
-
-All code is available on GitHub with MIT license. Installation via `pip install temporal-networks` or `pip install -e .` from source.
-
-# Limitations and Future Work
-
-**Current Limitations:**
-- Interactive HTML animations are less effective with gapped data (static plots recommended)
-- Some community detection algorithms require undirected graphs
-- Very large graphs (100,000+ nodes) may have performance considerations
-
-**Future Enhancements:**
-- Parallel processing for large temporal sequences
-- Support for heterogeneous temporal networks (different node/edge types)
-- Advanced visualization with interactive gap annotation
-- Temporal motif and pattern analysis
-- Integration with machine learning for gap imputation
+`temporal_networks` is released under the GNU General Public License v3.0 (GPL-3.0)
+and developed openly on GitHub, with documentation hosted on Read the Docs. It can
+be installed from source with `pip install -e .`; once published, it will also be
+available from PyPI as `pip install temporal_networks`.
 
 # Acknowledgments
 
-
+The authors thank colleagues at the University of Manitoba for feedback on the
+package design and documentation.
 
 # References

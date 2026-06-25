@@ -55,7 +55,7 @@ Repository = "https://github.com/cadrianas/temporal_networks"
 "Bug Tracker" = "https://github.com/cadrianas/temporal_networks/issues"
 
 [tool.setuptools.packages.find]
-exclude = ["tests*", "benchmarks*", "examples*"]
+include = ["temporal_networks*"]
 
 [tool.setuptools.package-data]
 temporal_networks = ["py.typed"]
