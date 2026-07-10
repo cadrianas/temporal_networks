@@ -17,6 +17,8 @@ KEY FEATURES:
   data closure is not flagged as an anomaly.
 """
 
+import warnings
+
 import numpy as np
 import pandas as pd
 from typing import Dict, List, Optional
@@ -179,8 +181,64 @@ def _pelt_flags(series: np.ndarray, segments: List,
                     flags.append({"index": abs_idx,
                                   "score": float("nan")})
         except Exception as e:
-            print(f"Warning: PELT failed for segment [{start}, {end}): {e}")
+            warnings.warn(
+                f"PELT failed for segment [{start}, {end}): {e}")
     return flags
+
+
+def _segments_for_frame(series_df: pd.DataFrame, label_col: str,
+                        gap_info: Optional[Dict]) -> List:
+    """
+    Map detected temporal gaps to row positions of ``series_df``.
+
+    ``gap_info["segments"]`` indexes the original *label sequence*, which
+    does not necessarily align with the rows of ``series_df`` — e.g.
+    ``snapshot_similarity`` output has one row per consecutive pair, so it
+    is one row shorter and starts at the second label. Segments are
+    therefore re-derived from ``label_col``: every row whose label is the
+    first label after a detected gap starts a new segment.
+
+    Parameters
+    ----------
+    series_df : pandas.DataFrame
+        The frame being analysed.
+    label_col : str
+        Column holding the snapshot label for each row.
+    gap_info : dict or None
+        Output of :func:`~temporal_networks.detect_temporal_gaps`.
+
+    Returns
+    -------
+    list of tuple
+        ``(start, end)`` row-index pairs covering ``series_df``. A single
+        ``(0, len(series_df))`` segment when there is nothing to split on.
+        When the gaps carry no matchable labels (or ``label_col`` is
+        absent), falls back to ``gap_info["segments"]`` clipped to the
+        frame length.
+    """
+    n = len(series_df)
+    if gap_info is None:
+        return [(0, n)]
+
+    gaps = gap_info.get("gaps") or []
+    if gaps and label_col in series_df.columns:
+        end_labels = {g["end_label"] for g in gaps}
+        labels = list(series_df[label_col])
+        boundaries = [i for i, lab in enumerate(labels)
+                      if lab in end_labels and i > 0]
+        segments = []
+        start = 0
+        for b in boundaries:
+            segments.append((start, b))
+            start = b
+        segments.append((start, n))
+        return segments
+
+    # No gap labels to match on: use the provided index segments, clipped
+    # to the frame length so a shorter frame cannot over-slice.
+    segments = [(s, min(e, n))
+                for s, e in gap_info.get("segments", [(0, n)]) if s < n]
+    return segments or [(0, n)]
 
 
 # ============================================================================
@@ -236,7 +294,11 @@ def detect_change_points(
         ``"Graph"``). Used to populate the ``label`` column in the output.
     gap_info : dict, optional
         Gap information from :func:`~temporal_networks.detect_temporal_gaps`.
-        When provided, statistics are reset at each gap boundary.
+        When provided, statistics are reset at each gap boundary. Gap
+        boundaries are matched to rows through ``label_col``, so frames
+        that do not have one row per label (e.g.
+        :func:`~temporal_networks.snapshot_similarity` output, which has
+        one row per consecutive pair) are still split at the correct rows.
 
     Returns
     -------
@@ -274,10 +336,11 @@ def detect_change_points(
         numeric = series_df.select_dtypes(include=np.number).columns.tolist()
         columns = [c for c in numeric if c != label_col]
 
-    if gap_info is not None:
-        segments = gap_info.get("segments", [(0, len(series_df))])
-    else:
-        segments = [(0, len(series_df))]
+    # Segments are aligned to the ROWS of series_df via label_col, so
+    # frames that do not have one row per label (e.g. snapshot_similarity
+    # output, which starts at the second label) are still split at the
+    # right rows.
+    segments = _segments_for_frame(series_df, label_col, gap_info)
 
     rows = []
     for col in columns:
@@ -295,7 +358,8 @@ def detect_change_points(
         except ImportError:
             raise
         except Exception as e:
-            print(f"Warning: Error detecting change points in '{col}': {e}")
+            warnings.warn(
+                f"Error detecting change points in '{col}': {e}")
             continue
 
         for flag in flags:
@@ -356,7 +420,7 @@ def flag_anomalous_snapshots(
     >>> g_normal = ig.Graph.Full(n=5)
     >>> g_sparse = ig.Graph(n=5, edges=[(0, 1)])
     >>> graphs = [g_normal] * 8 + [g_sparse] + [g_normal] * 8
-    >>> labels = [f"2024-{i+1:02d}" for i in range(17)]
+    >>> labels = [f"{2024 + i // 12}-{i % 12 + 1:02d}" for i in range(17)]
     >>> flags = flag_anomalous_snapshots(graphs, graph_labels=labels,
     ...                                   threshold=2.0)
     >>> len(flags) > 0
