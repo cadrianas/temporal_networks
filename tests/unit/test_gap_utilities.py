@@ -58,6 +58,25 @@ class TestParseFlexibleDatetime(unittest.TestCase):
         # YYYY-W## (First day of ISO week 12 in 2024 is Monday, March 18)
         self.assertEqual(parse_flexible_datetime("2024-W12"), datetime(2024, 3, 18))
 
+    def test_parse_iso_weeks_at_year_boundaries(self):
+        """ISO week years differ from calendar years around January.
+
+        Regression test: parsing with the non-ISO %Y/%W directives placed
+        2025-W01 at Jan 6 instead of Dec 30, so continuous weekly data
+        reported a false gap at every year boundary.
+        """
+        # ISO 2025-W01 starts Monday 2024-12-30 (calendar year mismatch)
+        self.assertEqual(parse_flexible_datetime("2025-W01"),
+                         datetime(2024, 12, 30))
+        self.assertEqual(parse_flexible_datetime("2026-W01"),
+                         datetime(2025, 12, 29))
+        # 2020 is a 53-week ISO year
+        self.assertEqual(parse_flexible_datetime("2020-W53"),
+                         datetime(2020, 12, 28))
+        # 2024-W01 starts exactly on Jan 1 (a Monday)
+        self.assertEqual(parse_flexible_datetime("2024-W01"),
+                         datetime(2024, 1, 1))
+
         # YYYY-Q# (First day of quarter 2 is April 1)
         self.assertEqual(parse_flexible_datetime("2024-Q2"), datetime(2024, 4, 1))
 
@@ -109,9 +128,20 @@ class TestGapDetectionLabelFormats(unittest.TestCase):
             ["2020", "2021", "2022", "2023"],                      # yearly
             ["2024-03-01", "2024-03-02", "2024-03-03"],            # daily
             ["2024-W01", "2024-W02", "2024-W03"],                  # weekly
+            # weekly across a year boundary (ISO year != calendar year)
+            ["2024-W51", "2024-W52", "2025-W01", "2025-W02"],
+            # weekly across a 53-week ISO year
+            ["2020-W52", "2020-W53", "2021-W01", "2021-W02"],
         ):
             with self.subTest(labels=labels):
                 self.assertFalse(detect_temporal_gaps(labels)["has_gaps"])
+
+    def test_skipped_week_at_year_boundary_is_detected(self):
+        """A genuinely missing week near New Year must still be flagged."""
+        result = detect_temporal_gaps(["2024-W51", "2024-W52",
+                                       "2025-W02", "2025-W03"])
+        self.assertEqual(result["num_gaps"], 1)
+        self.assertEqual(result["gaps"][0]["gap_size"], 2.0)
 
     def test_skipped_period_is_detected(self):
         # Skipped quarter (Q2 missing)
@@ -130,6 +160,40 @@ class TestGapDetectionLabelFormats(unittest.TestCase):
         info = detect_temporal_gaps(["2020", "2021"], unit="months",
                                     gap_threshold=1)
         self.assertTrue(info["has_gaps"])  # 12 months apart > threshold 1
+
+
+class TestUnparseableLabelWarning(unittest.TestCase):
+    """Disabled gap detection must be loud, not silent (regression)."""
+
+    def test_unparseable_labels_warn(self):
+        """User-supplied labels that fail to parse emit a UserWarning."""
+        with self.assertWarns(UserWarning) as cm:
+            info = detect_temporal_gaps(["Jan 2024", "Feb 2024"])
+        self.assertFalse(info["has_gaps"])
+        self.assertIn("gap detection is DISABLED", str(cm.warning))
+        self.assertIn("Jan 2024", str(cm.warning))
+
+    def test_mixed_labels_warn(self):
+        """One bad label among good ones still disables detection loudly."""
+        with self.assertWarns(UserWarning):
+            info = detect_temporal_gaps(["2024-01", "2024-XX", "2024-03"])
+        self.assertFalse(info["has_gaps"])
+
+    def test_default_placeholder_labels_stay_silent(self):
+        """Auto-generated 'Graph N' labels mean no dates were supplied —
+        disabling gap detection then is expected, so no warning."""
+        import warnings as w
+        with w.catch_warnings():
+            w.simplefilter("error")  # any warning would fail the test
+            info = detect_temporal_gaps(["Graph 1", "Graph 2", "Graph 3"])
+        self.assertFalse(info["has_gaps"])
+
+    def test_parseable_labels_stay_silent(self):
+        import warnings as w
+        with w.catch_warnings():
+            w.simplefilter("error")
+            info = detect_temporal_gaps(["2024-01", "2024-02"])
+        self.assertFalse(info["has_gaps"])
 
 
 class TestVertexKeys(unittest.TestCase):

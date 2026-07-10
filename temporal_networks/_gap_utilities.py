@@ -5,10 +5,18 @@ This module provides shared logic for temporal gap detection, datetime parsing,
 and gap-aware plotting across the temporal_networks package.
 """
 
+import re
+import warnings
 import numpy as np
 import pandas as pd
 from datetime import datetime
 from typing import List, Tuple, Optional, Dict
+
+# Pattern of the auto-generated placeholder labels produced by
+# ``validate_and_setup_graphs`` when the user supplies no labels. These
+# intentionally carry no temporal information, so gap detection stays
+# silently disabled for them (no warning).
+_DEFAULT_LABEL_RE = re.compile(r"^Graph \d+$")
 
 
 # ============================================================================
@@ -136,11 +144,15 @@ def parse_flexible_datetime(label: str) -> Optional[datetime]:
     except ValueError:
         pass
 
-    # Try YYYY-W## (ISO week format)
+    # Try YYYY-W## (ISO 8601 week format). %G/%V/%u are the ISO week-date
+    # directives; the non-ISO %Y/%W pair drifts by up to a week around
+    # year boundaries (e.g. ISO 2025-W01 starts 2024-12-30), which would
+    # make continuous weekly data report a false gap every January.
     try:
         year, week = label.strip().split('-W')
-        # Convert week number to date (using first day of week)
-        return datetime.strptime(f"{year}-W{int(week)}-1", "%Y-W%W-%w")
+        # Monday of the given ISO week
+        return datetime.strptime(f"{int(year)}-W{int(week):02d}-1",
+                                 "%G-W%V-%u")
     except (ValueError, AttributeError, IndexError):
         pass
 
@@ -298,6 +310,15 @@ def detect_temporal_gaps(graph_labels: List[str],
           continuous segments
         - "report" (str): Human-readable gap report
 
+    Warns
+    -----
+    UserWarning
+        If any label cannot be parsed as a date, gap detection is disabled
+        (the result reports no gaps and a single continuous segment) and a
+        ``UserWarning`` is emitted naming the offending labels. No warning
+        is emitted for the auto-generated placeholder labels
+        (``"Graph 1"``, ``"Graph 2"``, ...) used when no labels are given.
+
     Examples
     --------
     >>> labels = ["2024-03", "2024-04", "2024-05", "2024-11", "2024-12"]
@@ -334,6 +355,21 @@ def detect_temporal_gaps(graph_labels: List[str],
 
     # Check if all parsing was successful
     if any(d is None for d in parsed_dates):
+        bad = [label for label, d in zip(graph_labels, parsed_dates)
+               if d is None]
+        # Auto-generated placeholders ("Graph 1", ...) mean the user never
+        # supplied temporal labels — disable silently. Anything else is a
+        # likely formatting mistake the user must hear about, because every
+        # gap-aware function silently degrades when detection is off.
+        if not all(_DEFAULT_LABEL_RE.match(str(label))
+                   for label in graph_labels):
+            warnings.warn(
+                f"Could not parse {len(bad)} of {len(graph_labels)} "
+                f"labels as dates (e.g. {bad[:3]}); temporal gap "
+                f"detection is DISABLED and gap-aware functions will "
+                f"treat the sequence as continuous. Use label formats "
+                f"'YYYY-MM', 'YYYY-MM-DD', 'YYYY-W##', 'YYYY-Q#' or "
+                f"'YYYY' to enable gap detection.")
         report = "Warning: Could not parse all labels. Gap detection disabled."
         return {
             "has_gaps": False,
