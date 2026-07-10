@@ -13,9 +13,12 @@ KEY FEATURES:
 - Handles gapped data correctly in temporal plots
 """
 
+import logging
+import os
+import warnings
+
 import pandas as pd
 import matplotlib.pyplot as plt
-import os
 from typing import List, Optional, Dict
 from ._gap_utilities import (
     detect_temporal_gaps,
@@ -25,6 +28,9 @@ from ._gap_utilities import (
 )
 
 
+logger = logging.getLogger(__name__)
+
+
 # ============================================================================
 # MAIN FUNCTION
 # ============================================================================
@@ -32,7 +38,7 @@ from ._gap_utilities import (
 def calculate_centralities(graphs: List,
                           graph_labels: Optional[List[str]] = None,
                           filename: Optional[str] = None,
-                          report_gaps: bool = True,
+                          report_gaps: bool = False,
                           visualize_evolution: bool = False,
                           save_path: str = "plots/") -> pd.DataFrame:
     """
@@ -58,7 +64,8 @@ def calculate_centralities(graphs: List,
         CSV filename for saving results. If None (default), results are not
         saved to file (no files are written unless a filename is given).
     report_gaps : bool, optional
-        If True (default), analyzes and reports temporal gaps to the console
+        If True, print a temporal gap report to the console
+        (default: False)
     visualize_evolution : bool, optional
         If True, creates plots showing how centrality measures evolve over time
         (default: False). This is useful for tracking important nodes.
@@ -133,10 +140,9 @@ def calculate_centralities(graphs: List,
             node_labels = graph.vs["label"]
         else:
             node_labels = [f"Node_{i}" for i in range(n)]
-            print(
-                f"Warning: Graph {graph_name} has no 'name' or 'label' attribute. "
-                "Using node indices."
-            )
+            warnings.warn(
+                f"Graph {graph_name} has no 'name' or 'label' attribute. "
+                "Using node indices.")
 
         # Compute centrality measures
         try:
@@ -224,9 +230,9 @@ def calculate_centralities(graphs: List,
     if filename:
         try:
             centralities_df.to_csv(filename, index=False)
-            print(f"✓ Centralities results saved to {filename}")
+            logger.info("Centralities results saved to %s", filename)
         except Exception as e:
-            print(f"Error saving centralities to CSV: {e}")
+            warnings.warn(f"Error saving centralities to CSV: {e}")
 
     # Optional: Visualize centrality evolution over time
     if visualize_evolution:
@@ -295,7 +301,8 @@ def _visualize_centrality_evolution(centralities_df: pd.DataFrame,
             )
             fig.savefig(plot_filename, dpi=300, bbox_inches='tight')
             plt.close(fig)
-            print(f"✓ Centrality evolution plot saved: {plot_filename}")
+            logger.info("Centrality evolution plot saved: %s",
+                        plot_filename)
 
         except Exception as e:
-            print(f"Warning: Could not plot {measure}: {e}")
+            warnings.warn(f"Could not plot {measure}: {e}")

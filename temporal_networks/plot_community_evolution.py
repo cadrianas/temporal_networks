@@ -5,12 +5,17 @@ This module provides functions for creating interactive animated visualizations
 of how community structures change over time in networks.
 """
 
+import logging
+import warnings
+
 import plotly.graph_objs as go
 from plotly.offline import plot
 import random
 from typing import List, Any
 from ._gap_utilities import validate_and_setup_graphs
 from ._community_utils import _detect_communities
+
+logger = logging.getLogger(__name__)
 
 
 def plot_community_evolution(graphs: List,
@@ -93,7 +98,7 @@ def plot_community_evolution(graphs: List,
     )
 
     plot(fig, filename=output_file, auto_open=False)
-    print(f"✓ Community evolution animation saved to {output_file}")
+    logger.info("Community evolution animation saved to %s", output_file)
 
 
 def _create_animation_frames(graphs: List,
@@ -117,7 +122,8 @@ def _create_animation_frames(graphs: List,
 
     for frame_idx, (graph, partition) in enumerate(zip(graphs, communities_list)):
         if partition is None:
-            print(f"  Skipping frame {frame_idx} due to detection failure")
+            logger.info("Skipping frame %d due to detection failure",
+                        frame_idx)
             continue
 
         try:
@@ -126,8 +132,8 @@ def _create_animation_frames(graphs: List,
             else:
                 pos = [(random.uniform(0, 1), random.uniform(0, 1))
                        for _ in graph.vs]
-                print(f"  Note: Frame {frame_idx} using random "
-                      f"positions (no x/y attributes)")
+                logger.info("Frame %d using random positions "
+                            "(no x/y vertex attributes)", frame_idx)
 
             try:
                 community_membership = partition.membership
@@ -184,8 +190,8 @@ def _create_animation_frames(graphs: List,
             frames.append(frame)
 
         except Exception as e:
-            print(f"  Warning: Could not create visualization for "
-                  f"frame {frame_idx}: {e}")
+            warnings.warn(f"Could not create visualization for "
+                          f"frame {frame_idx}: {e}")
             continue
 
     return frames

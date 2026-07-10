@@ -11,10 +11,13 @@ KEY FEATURES:
 - Plots correctly show gaps as visual breaks, not false continuity
 """
 
+import logging
+import os
+import warnings
+
 import pandas as pd
 import matplotlib.pyplot as plt
 import numpy as np
-import os
 from typing import List, Optional
 from ._gap_utilities import (
     detect_temporal_gaps,
@@ -23,6 +26,15 @@ from ._gap_utilities import (
     format_large_numbers,
     validate_and_setup_graphs
 )
+
+_PROPERTY_COLUMNS = [
+    "Graph", "Number of Nodes", "Number of Edges", "Density",
+    "Strongly Connected Components", "Girth", "Diameter",
+    "Average Path Length", "Mean Degree", "Reciprocity", "Transitivity",
+    "Is Bipartite", "Is Connected", "Is DAG", "Is Directed",
+    "Is Named", "Is Simple", "Is Weighted", "Has Multiple"
+]
+logger = logging.getLogger(__name__)
 
 
 # ============================================================================
@@ -34,7 +46,7 @@ def network_properties(graphs: List,
                       filename: Optional[str] = None,
                       save_path: Optional[str] = None,
                       visualisation: bool = True,
-                      report_gaps: bool = True) -> pd.DataFrame:
+                      report_gaps: bool = False) -> pd.DataFrame:
     """
     Compute comprehensive network properties for a collection of graphs.
 
@@ -62,7 +74,8 @@ def network_properties(graphs: List,
     visualisation : bool, optional
         If True (default), generates plots for each numerical property
     report_gaps : bool, optional
-        If True (default), analyzes and reports temporal gaps to the console
+        If True, print a temporal gap report to the console
+        (default: False)
 
     Returns
     -------
@@ -131,7 +144,13 @@ def network_properties(graphs: List,
             try:
                 dist_matrix = np.array(graph.distances(), dtype=float)
                 dist_matrix[np.isinf(dist_matrix)] = np.nan
-                avg_path_length = np.nanmean(dist_matrix)
+                # Exclude self-distances: the diagonal zeros are not paths
+                # and would bias the mean downward.
+                np.fill_diagonal(dist_matrix, np.nan)
+                if np.all(np.isnan(dist_matrix)):
+                    avg_path_length = np.nan
+                else:
+                    avg_path_length = float(np.nanmean(dist_matrix))
             except Exception:
                 avg_path_length = np.nan
 
@@ -165,7 +184,14 @@ def network_properties(graphs: List,
             })
 
         except Exception as e:
-            print(f"Warning: Error processing graph {graph_labels[i]}: {e}")
+            # Emit a NaN row so the output keeps one row per graph even
+            # when a snapshot fails to process.
+            warnings.warn(
+                f"Error processing graph {graph_labels[i]}: {e}; "
+                f"reporting NaN for this snapshot")
+            results.append({"Graph": graph_labels[i],
+                            **{col: np.nan
+                               for col in _PROPERTY_COLUMNS[1:]}})
             continue
 
     # Create DataFrame with network properties
@@ -174,22 +200,15 @@ def network_properties(graphs: List,
     # If no graphs were processed successfully, return an empty DataFrame
     # with the correct columns
     if network_data.empty:
-        columns = [
-            "Graph", "Number of Nodes", "Number of Edges", "Density",
-            "Strongly Connected Components", "Girth", "Diameter",
-            "Average Path Length", "Mean Degree", "Reciprocity", "Transitivity",
-            "Is Bipartite", "Is Connected", "Is DAG", "Is Directed",
-            "Is Named", "Is Simple", "Is Weighted", "Has Multiple"
-        ]
-        network_data = pd.DataFrame(columns=columns)
+        network_data = pd.DataFrame(columns=_PROPERTY_COLUMNS)
 
     # Save to CSV if requested
     if filename:
         try:
             network_data.to_csv(filename, index=False)
-            print(f"✓ Network properties saved to {filename}")
+            logger.info("Network properties saved to %s", filename)
         except Exception as e:
-            print(f"Error saving to CSV: {e}")
+            warnings.warn(f"Error saving to CSV: {e}")
 
     # Generate visualizations with gap handling
     if visualisation and save_path is not None:
@@ -256,7 +275,7 @@ def _plot_properties(network_data: pd.DataFrame, gap_info: dict,
             plot_filename = os.path.join(save_path, f"{prop}.pdf")
             fig.savefig(plot_filename, dpi=300, bbox_inches='tight')
             plt.close(fig)
-            print(f"✓ Plot saved: {plot_filename}")
+            logger.info("Plot saved: %s", plot_filename)
 
         except Exception as e:
-            print(f"Warning: Could not plot {prop}: {e}")
+            warnings.warn(f"Could not plot {prop}: {e}")

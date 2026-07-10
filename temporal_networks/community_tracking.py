@@ -18,7 +18,10 @@ KEY FEATURES:
   unless it re-matches later.
 """
 
+import logging
 import os
+import warnings
+
 import pandas as pd
 import matplotlib.pyplot as plt
 from typing import Dict, List, Optional, Set
@@ -29,6 +32,8 @@ from ._gap_utilities import (
     _vertex_keys,
 )
 from ._community_utils import _detect_communities
+
+logger = logging.getLogger(__name__)
 
 __all__ = [
     "track_communities",
@@ -91,7 +96,7 @@ def track_communities(
     algorithm: str = "multilevel",
     match_threshold: float = 0.3,
     bridge_gaps: bool = False,
-    report_gaps: bool = True,
+    report_gaps: bool = False,
 ) -> pd.DataFrame:
     """
     Match communities across snapshots and label lifecycle events.
@@ -121,7 +126,8 @@ def track_communities(
     bridge_gaps : bool, optional
         If False (default), lineages are not linked across a detected gap.
     report_gaps : bool, optional
-        If True (default), prints a temporal gap report to the console.
+        If True, print a temporal gap report to the console
+        (default: False).
 
     Returns
     -------
@@ -156,7 +162,6 @@ def track_communities(
     >>> g = ig.Graph(n=6, edges=edges)
     >>> df = track_communities([g, g.copy()], graph_labels=["t0", "t1"],
     ...                         algorithm="louvain", report_gaps=False)
-    Detecting communities with Louvain algorithm...
     >>> sorted(df["event"].unique())
     ['birth', 'continue']
     """
@@ -333,7 +338,7 @@ def plot_community_lineage(
         path = os.path.join(save_path, "community_lineage.pdf")
         fig.savefig(path, dpi=300, bbox_inches="tight")
         plt.close(fig)
-        print(f"✓ Plot saved: {path}")
+        logger.info("Plot saved: %s", path)
 
     except Exception as e:
-        print(f"Warning: Could not plot community lineage: {e}")
+        warnings.warn(f"Could not plot community lineage: {e}")

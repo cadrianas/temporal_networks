@@ -15,7 +15,10 @@ KEY FEATURES:
   for an entity being inactive.
 """
 
+import logging
 import os
+import warnings
+
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -29,6 +32,8 @@ from ._gap_utilities import (
     _infer_unit_and_threshold,
 )
 from .edge_formation_dissolution import _edge_identity_set
+
+logger = logging.getLogger(__name__)
 
 __all__ = [
     "inter_event_times",
@@ -84,7 +89,8 @@ def _entity_active_indices(graphs: List, by: str) -> Dict[str, List[int]]:
             for key in keys:
                 active.setdefault(key, []).append(i)
         except Exception as e:
-            print(f"Warning: Error processing snapshot {i}: {e}")
+            warnings.warn(f"Error processing snapshot {i}: {e}; "
+                          f"skipping this snapshot")
             continue
     return active
 
@@ -203,8 +209,9 @@ def inter_event_times(graphs: List,
                     "spans_gap": spans,
                 })
             except Exception as e:
-                print(f"Warning: Error timing entity {entity} between "
-                      f"snapshots {i_a} and {i_b}: {e}")
+                warnings.warn(f"Error timing entity {entity} between "
+                              f"snapshots {i_a} and {i_b}: {e}; "
+                              f"skipping this interval")
                 continue
 
     df = pd.DataFrame(rows)
@@ -219,7 +226,7 @@ def burstiness_coefficient(graphs: List,
                            by: str = "edge",
                            exclude_gaps: bool = True,
                            save_path: Optional[str] = None,
-                           report_gaps: bool = True) -> pd.DataFrame:
+                           report_gaps: bool = False) -> pd.DataFrame:
     """
     Goh-Barabasi burstiness coefficient per edge or node.
 
@@ -248,7 +255,8 @@ def burstiness_coefficient(graphs: List,
         Directory for saving the burstiness-distribution plot. If None
         (default), no file is saved.
     report_gaps : bool, optional
-        If True (default), analyzes and reports temporal gaps to the console.
+        If True, print a temporal gap report to the console
+        (default: False).
 
     Returns
     -------
@@ -327,7 +335,8 @@ def burstiness_coefficient(graphs: List,
                 "burstiness": burst,
             })
         except Exception as e:
-            print(f"Warning: Error scoring entity {entity}: {e}")
+            warnings.warn(f"Error scoring entity {entity}: {e}; "
+                          f"skipping this entity")
             continue
 
     df = pd.DataFrame(rows)
@@ -378,7 +387,7 @@ def _plot_burstiness(df: pd.DataFrame, by: str, save_path: str) -> None:
         plot_filename = os.path.join(save_path, f"burstiness_{by}.pdf")
         fig.savefig(plot_filename, dpi=300, bbox_inches='tight')
         plt.close(fig)
-        print(f"✓ Plot saved: {plot_filename}")
+        logger.info("Plot saved: %s", plot_filename)
 
     except Exception as e:
-        print(f"Warning: Could not plot burstiness distribution: {e}")
+        warnings.warn(f"Could not plot burstiness distribution: {e}")

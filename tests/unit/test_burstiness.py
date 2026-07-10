@@ -152,12 +152,9 @@ class TestErrorHandling(unittest.TestCase):
         graphs = [_on(), _on()]
         with patch("temporal_networks.burstiness._edge_identity_set",
                    side_effect=Exception("boom")):
-            f = io.StringIO()
-            with contextlib.redirect_stdout(f):
+            with self.assertWarns(UserWarning):
                 df = burstiness_coefficient(graphs, graph_labels=["a", "b"],
                                             report_gaps=False)
-            out = f.getvalue()
-        self.assertIn("Warning", out)
         self.assertTrue(df.empty)
         self.assertEqual(list(df.columns),
                          ["entity", "n_events", "mean_interval",

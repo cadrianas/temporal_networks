@@ -11,10 +11,13 @@ KEY FEATURES:
 - Tracks individual node evolution
 """
 
+import logging
+import os
+import warnings
+
 import pandas as pd
 import matplotlib.pyplot as plt
 import numpy as np
-import os
 from typing import List, Optional
 from ._gap_utilities import (
     detect_temporal_gaps,
@@ -22,6 +25,9 @@ from ._gap_utilities import (
     plot_with_gap_handling,
     validate_and_setup_graphs
 )
+
+
+logger = logging.getLogger(__name__)
 
 
 # ============================================================================
@@ -34,7 +40,7 @@ def vertex_properties(graphs: List,
                      filename: Optional[str] = None,
                      save_path: Optional[str] = None,
                      visualisation: bool = True,
-                     report_gaps: bool = True) -> pd.DataFrame:
+                     report_gaps: bool = False) -> pd.DataFrame:
     """
     Compute and visualize properties of a specific node across multiple graphs.
 
@@ -63,7 +69,8 @@ def vertex_properties(graphs: List,
     visualisation : bool, optional
         If True (default), generates plots for each property over time
     report_gaps : bool, optional
-        If True (default), analyzes and reports temporal gaps to the console
+        If True, print a temporal gap report to the console
+        (default: False)
 
     Returns
     -------
@@ -120,9 +127,9 @@ def vertex_properties(graphs: List,
         save_path_file = os.path.join(save_path, filename) if save_path else filename
         try:
             properties_df.to_csv(save_path_file, index=False)
-            print(f"✓ Vertex properties saved to {save_path_file}")
+            logger.info("Vertex properties saved to %s", save_path_file)
         except Exception as e:
-            print(f"Error saving vertex properties: {e}")
+            warnings.warn(f"Error saving vertex properties: {e}")
 
     # Generate visualizations with gap handling
     if visualisation and save_path is not None:
@@ -180,8 +187,14 @@ def _compute_vertex_properties(graphs: List, node_name: str,
         elif "label" in graph.vs.attributes() and node_name in graph.vs["label"]:
             node_index = graph.vs.find(label=node_name).index
         else:
-            print(f"Warning: Node '{node_name}' not found in graph "
-                  f"{graph_name}. Skipping.")
+            # Emit a NaN row so the output keeps one row per graph even
+            # when the node is absent from a snapshot.
+            warnings.warn(f"Node '{node_name}' not found in graph "
+                          f"{graph_name}; reporting NaN for this snapshot")
+            properties["Graph"].append(graph_name)
+            for key in properties:
+                if key != "Graph":
+                    properties[key].append(None)
             continue
 
         # Record graph name
@@ -331,10 +344,10 @@ def _plot_vertex_properties(properties_df: pd.DataFrame, node_name: str,
             plot_filename = os.path.join(save_path, f"{node_name}_{prop}.pdf")
             fig.savefig(plot_filename, dpi=300, bbox_inches='tight')
             plt.close(fig)
-            print(f"✓ Plot saved: {plot_filename}")
+            logger.info("Plot saved: %s", plot_filename)
 
         except Exception as e:
-            print(f"Warning: Could not plot {prop}: {e}")
+            warnings.warn(f"Could not plot {prop}: {e}")
 
     # Create combined plot with all properties
     try:
@@ -375,7 +388,7 @@ def _plot_vertex_properties(properties_df: pd.DataFrame, node_name: str,
         combined_filename = os.path.join(save_path, f"{node_name}_all_properties.pdf")
         fig.savefig(combined_filename, dpi=300, bbox_inches='tight')
         plt.close(fig)
-        print(f"✓ Combined plot saved: {combined_filename}")
+        logger.info("Combined plot saved: %s", combined_filename)
 
     except Exception as e:
-        print(f"Warning: Could not create combined plot: {e}")
+        warnings.warn(f"Could not create combined plot: {e}")

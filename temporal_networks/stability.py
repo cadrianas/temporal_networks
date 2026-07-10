@@ -12,8 +12,10 @@ KEY FEATURES:
   so the package never compares across missing data.
 """
 
-import os
+import logging
 import math
+import os
+import warnings
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -34,6 +36,8 @@ __all__ = [
 
 _METRICS = ["jaccard", "edge_persistence", "node_persistence",
             "temporal_correlation"]
+
+logger = logging.getLogger(__name__)
 
 
 # ============================================================================
@@ -103,7 +107,7 @@ def _temporal_correlation_pair(nb_prev: Dict, nb_curr: Dict) -> float:
 def snapshot_similarity(graphs: List,
                         graph_labels: Optional[List[str]] = None,
                         save_path: Optional[str] = None,
-                        report_gaps: bool = True) -> pd.DataFrame:
+                        report_gaps: bool = False) -> pd.DataFrame:
     """
     Measure structural similarity between consecutive snapshots.
 
@@ -126,7 +130,8 @@ def snapshot_similarity(graphs: List,
     save_path : str, optional
         Directory for saving plots. If None (default), no file is saved.
     report_gaps : bool, optional
-        If True (default), analyzes and reports temporal gaps to the console.
+        If True, print a temporal gap report to the console
+        (default: False).
 
     Returns
     -------
@@ -167,14 +172,14 @@ def snapshot_similarity(graphs: List,
 
     gap_ends = {g["end_idx"] for g in gap_info.get("gaps", [])}
 
+    def _nan_row(i: int) -> Dict:
+        return {"Graph": graph_labels[i],
+                **{metric: np.nan for metric in _METRICS}}
+
     rows = []
     for i in range(1, len(graphs)):
         if i in gap_ends:
-            rows.append({"Graph": graph_labels[i],
-                         "jaccard": np.nan,
-                         "edge_persistence": np.nan,
-                         "node_persistence": np.nan,
-                         "temporal_correlation": np.nan})
+            rows.append(_nan_row(i))
             continue
 
         try:
@@ -201,7 +206,12 @@ def snapshot_similarity(graphs: List,
                          "temporal_correlation": tc})
 
         except Exception as e:
-            print(f"Warning: Error comparing snapshots {i - 1} and {i}: {e}")
+            # Emit a NaN row so the output keeps one row per consecutive
+            # pair even when a comparison fails.
+            warnings.warn(
+                f"Error comparing snapshots {i - 1} and {i} "
+                f"({graph_labels[i]}): {e}; reporting NaN for this pair")
+            rows.append(_nan_row(i))
             continue
 
     df = pd.DataFrame(rows)
@@ -260,7 +270,9 @@ def temporal_correlation_coefficient(
             c = _temporal_correlation_pair(_neighbor_sets(graphs[i - 1]),
                                            _neighbor_sets(graphs[i]))
         except Exception as e:
-            print(f"Warning: Error comparing snapshots {i - 1} and {i}: {e}")
+            warnings.warn(
+                f"Error comparing snapshots {i - 1} and {i}: {e}; "
+                f"skipping this pair")
             continue
         if not math.isnan(c):
             values.append(c)
@@ -319,7 +331,7 @@ def _plot_similarity(df: pd.DataFrame, graph_labels: List[str],
             plot_filename = os.path.join(save_path, f"{metric}.pdf")
             fig.savefig(plot_filename, dpi=300, bbox_inches='tight')
             plt.close(fig)
-            print(f"✓ Plot saved: {plot_filename}")
+            logger.info("Plot saved: %s", plot_filename)
 
         except Exception as e:
-            print(f"Warning: Could not plot {metric}: {e}")
+            warnings.warn(f"Could not plot {metric}: {e}")

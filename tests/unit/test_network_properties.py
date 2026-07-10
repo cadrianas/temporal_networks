@@ -65,6 +65,38 @@ class TestNetworkProperties(unittest.TestCase):
         self.assertEqual(df.loc[1, "Number of Edges"], 2)
         self.assertEqual(df.loc[1, "Is Connected"], False)
 
+    def test_average_path_length_excludes_diagonal(self):
+        """APL must match igraph's definition (self-distances excluded).
+
+        Regression test: the mean previously included the diagonal zeros
+        of the distance matrix, biasing APL downward (path graph 0-1-2
+        reported 8/9 instead of the true 4/3).
+        """
+        path_graph = ig.Graph(n=3, edges=[(0, 1), (1, 2)])
+        df = network_properties(
+            graphs=[path_graph, self.g1, self.g2],
+            graph_labels=["P3", "G1", "G2"],
+            save_path=None,
+            visualisation=False,
+            report_gaps=False
+        )
+        self.assertAlmostEqual(df.loc[0, "Average Path Length"], 4 / 3)
+        self.assertAlmostEqual(df.loc[1, "Average Path Length"],
+                               self.g1.average_path_length())
+        # Disconnected graph: mean over finite (reachable) pairs only.
+        self.assertAlmostEqual(df.loc[2, "Average Path Length"], 1.0)
+
+    def test_average_path_length_edgeless_is_nan(self):
+        """An edgeless graph has no paths: APL must be NaN, not 0.0."""
+        df = network_properties(
+            graphs=[ig.Graph(n=3)],
+            graph_labels=["E3"],
+            save_path=None,
+            visualisation=False,
+            report_gaps=False
+        )
+        self.assertTrue(np.isnan(df.loc[0, "Average Path Length"]))
+
     def test_default_labels(self):
         """Test behavior when no labels are provided."""
         df = network_properties(
@@ -140,9 +172,9 @@ class TestNetworkProperties(unittest.TestCase):
         mock_graph = MagicMock()
         mock_graph.vcount.side_effect = Exception("Test Error")
 
-        # It should warn, but continue or handle it based on the try-except logic
-        # According to the code, if any exception occurs in the main block it will skip adding to arrays
-        with patch('builtins.print') as mock_print:
+        # A failing snapshot must warn and produce a NaN row, keeping one
+        # row per graph so output stays aligned with graph_labels.
+        with self.assertWarns(UserWarning):
             df = network_properties(
                 graphs=[self.g1, mock_graph, self.g2],
                 graph_labels=["G1", "ErrorGraph", "G2"],
@@ -151,22 +183,10 @@ class TestNetworkProperties(unittest.TestCase):
                 report_gaps=False
             )
 
-            # The properties lists are only filled for graphs that successfully pass the block.
-            # In the code:
-            # except Exception as e:
-            #     print(f"Warning: Error processing graph {graph_labels[len(num_vertices)]}: {e}")
-            #     continue
-
-            # So the DataFrame should only have 2 rows (G1 and G2)
-            self.assertEqual(len(df), 2)
-            self.assertEqual(df.loc[0, "Graph"], "G1")
-            # The implementation uses graph_labels[i] for each successfully
-            # processed graph, so skipping the middle graph does not shift
-            # labels: row 1 correctly corresponds to G2.
-            self.assertEqual(df.loc[1, "Graph"], "G2")
-
-            # Verify the warning was printed
-            mock_print.assert_any_call("Warning: Error processing graph ErrorGraph: Test Error")
+        self.assertEqual(len(df), 3)
+        self.assertEqual(list(df["Graph"]), ["G1", "ErrorGraph", "G2"])
+        self.assertTrue(np.isnan(df.loc[1, "Number of Nodes"]))
+        self.assertTrue(np.isnan(df.loc[1, "Density"]))
 
     def test_specific_property_exceptions(self):
         """Test behavior when specific properties (like diameter or girth) raise exceptions."""

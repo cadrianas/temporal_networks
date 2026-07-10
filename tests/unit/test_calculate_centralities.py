@@ -78,8 +78,7 @@ class TestCalculateCentralities(unittest.TestCase):
         """Test fallback node label generation when no name or label exists."""
         g = ig.Graph(n=3)
 
-        f = io.StringIO()
-        with contextlib.redirect_stdout(f):
+        with self.assertWarns(UserWarning) as ctx:
             df = calculate_centralities(
                 graphs=[g],
                 graph_labels=["G1"],
@@ -88,7 +87,8 @@ class TestCalculateCentralities(unittest.TestCase):
             )
 
         self.assertListEqual(list(df["Node"]), ["Node_0", "Node_1", "Node_2"])
-        self.assertIn("Warning: Graph G1 has no 'name' or 'label' attribute. Using node indices.", f.getvalue())
+        self.assertIn("has no 'name' or 'label' attribute",
+                      str(ctx.warning))
 
     def test_centrality_exception_handling(self):
         """Test handling of exceptions in centrality calculations."""
