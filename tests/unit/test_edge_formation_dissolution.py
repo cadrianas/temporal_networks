@@ -14,24 +14,47 @@ class TestEdgeFormationDissolutionException(unittest.TestCase):
         graphs = [g1, g2]
         labels = ["Graph 1", "Graph 2"]
 
-        # We patch igraph.Graph.get_edgelist to raise an Exception
-        with patch('igraph.Graph.get_edgelist', side_effect=Exception("Test Exception")):
-            f = io.StringIO()
-            with contextlib.redirect_stdout(f):
+        # We patch igraph.Graph.get_edgelist to raise an Exception. The
+        # failing pair must warn and yield a NaN row (shape preserved).
+        with patch('igraph.Graph.get_edgelist', side_effect=ig.InternalError("Test Exception")):
+            with self.assertWarns(UserWarning):
                 results = compute_edge_dynamics(
                     graphs=graphs,
                     graph_labels=labels
                 )
 
-            output = f.getvalue()
-            # Verify that the warning message is correctly formatted and printed
-            self.assertIn("Warning: Error comparing graphs 0 and 1: Test Exception", output)
-
-            # Verify that the returned DataFrame is empty due to the exception skipping the iteration
-            self.assertTrue(results.empty)
+        self.assertEqual(len(results), 1)
+        self.assertEqual(results.loc[0, "Graph"], "Graph 2")
+        self.assertTrue(pd.isna(results.loc[0, "Edges_Formed"]))
+        self.assertTrue(pd.isna(results.loc[0, "Edges_Dissolved"]))
 
 
 class TestEdgeFormationDissolution(unittest.TestCase):
+    def test_gap_straddling_pair_is_nan(self):
+        """A pair across a detected gap is NaN, matching snapshot_similarity.
+
+        Regression test: edge dynamics used to compare gap-straddling
+        snapshots as if they were consecutive.
+        """
+        g0 = ig.Graph(n=3, edges=[(0, 1)])
+        g1 = ig.Graph(n=3, edges=[(0, 1), (1, 2)])
+        g2 = ig.Graph(n=3, edges=[(1, 2)])
+        # 2024-03 is missing -> gap between the 2nd and 3rd snapshots.
+        labels = ["2024-01", "2024-02", "2024-04"]
+
+        df = compute_edge_dynamics([g0, g1, g2], graph_labels=labels)
+
+        self.assertEqual(len(df), 2)
+        # Normal pair still computed exactly.
+        self.assertEqual(df.loc[0, "Graph"], "2024-02")
+        self.assertEqual(df.loc[0, "Edges_Formed"], 1)
+        self.assertEqual(df.loc[0, "Edges_Dissolved"], 0)
+        # Gap-straddling pair reported as NaN in all metric columns.
+        self.assertEqual(df.loc[1, "Graph"], "2024-04")
+        for col in ["Edges_Formed", "Edges_Dissolved",
+                    "Edges_Formed_Percent", "Edges_Dissolved_Percent"]:
+            self.assertTrue(pd.isna(df.loc[1, col]))
+
     def test_compute_edge_dynamics_normal(self):
         """Test edge dynamics with normal graphs where edges are formed and dissolved."""
         # Graph 0: edges [(0, 1), (1, 2)]

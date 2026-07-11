@@ -1,7 +1,14 @@
 """
 temporal_networks: A Python package for analyzing temporal network evolution
 with automatic gap detection.
+
+Progress and file-saved messages are emitted on the ``temporal_networks``
+logger at INFO level; enable them with ``logging.basicConfig(level=
+logging.INFO)`` (or attach your own handler). Data-quality issues are
+raised as ``UserWarning`` via the ``warnings`` module.
 """
+
+import logging as _logging
 
 __version__ = "0.1.0"
 __author__ = "Adriana-Stefania Ciupeanu, Julien Arino"
@@ -70,3 +77,6 @@ from .community_tracking import (
     track_communities,
     plot_community_lineage,
 )
+
+# Library best practice: no output unless the application configures logging.
+_logging.getLogger(__name__).addHandler(_logging.NullHandler())

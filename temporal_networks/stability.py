@@ -12,18 +12,25 @@ KEY FEATURES:
   so the package never compares across missing data.
 """
 
-import os
+import logging
 import math
+import os
+import warnings
+import igraph as ig
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-from typing import List, Optional, Dict, Set
+from typing import Any, Dict, List, Optional, Set
 from ._gap_utilities import (
+    GapInfo,
+    NodeKey,
+    _COMPUTE_ERRORS,
     detect_temporal_gaps,
     print_gap_report,
     plot_with_gap_handling,
     validate_and_setup_graphs,
     _vertex_keys,
+    _active_nodes,
 )
 from .edge_formation_dissolution import _edge_identity_set
 
@@ -35,21 +42,14 @@ __all__ = [
 _METRICS = ["jaccard", "edge_persistence", "node_persistence",
             "temporal_correlation"]
 
+logger = logging.getLogger(__name__)
+
 
 # ============================================================================
 # INTERNAL HELPERS
 # ============================================================================
 
-def _active_nodes(edge_set: Set) -> Set:
-    """Return the set of node keys that are an endpoint of at least one edge."""
-    nodes: Set = set()
-    for u, v in edge_set:
-        nodes.add(u)
-        nodes.add(v)
-    return nodes
-
-
-def _neighbor_sets(graph) -> Dict:
+def _neighbor_sets(graph: ig.Graph) -> Dict[NodeKey, Set[NodeKey]]:
     """
     Return a mapping ``node_key -> set of neighbour keys`` for a graph.
 
@@ -58,7 +58,7 @@ def _neighbor_sets(graph) -> Dict:
     and self-loops are ignored.
     """
     keys = _vertex_keys(graph)
-    nb: Dict = {k: set() for k in keys}
+    nb: Dict[NodeKey, Set[NodeKey]] = {k: set() for k in keys}
     for source, target in graph.get_edgelist():
         u, v = keys[source], keys[target]
         if u == v:
@@ -68,7 +68,8 @@ def _neighbor_sets(graph) -> Dict:
     return nb
 
 
-def _temporal_correlation_pair(nb_prev: Dict, nb_curr: Dict) -> float:
+def _temporal_correlation_pair(nb_prev: Dict[NodeKey, Set[NodeKey]],
+                               nb_curr: Dict[NodeKey, Set[NodeKey]]) -> float:
     """
     Average topological overlap between two consecutive snapshots.
 
@@ -77,7 +78,7 @@ def _temporal_correlation_pair(nb_prev: Dict, nb_curr: Dict) -> float:
     in either snapshot). The result averages this over nodes that are active in
     at least one of the two snapshots, or NaN if neither snapshot has edges.
     """
-    nodes: Set = set()
+    nodes: Set[NodeKey] = set()
     for n, neighbours in nb_prev.items():
         if neighbours:
             nodes.add(n)
@@ -100,10 +101,10 @@ def _temporal_correlation_pair(nb_prev: Dict, nb_curr: Dict) -> float:
 # MAIN FUNCTIONS
 # ============================================================================
 
-def snapshot_similarity(graphs: List,
+def snapshot_similarity(graphs: List[ig.Graph],
                         graph_labels: Optional[List[str]] = None,
                         save_path: Optional[str] = None,
-                        report_gaps: bool = True) -> pd.DataFrame:
+                        report_gaps: bool = False) -> pd.DataFrame:
     """
     Measure structural similarity between consecutive snapshots.
 
@@ -126,7 +127,8 @@ def snapshot_similarity(graphs: List,
     save_path : str, optional
         Directory for saving plots. If None (default), no file is saved.
     report_gaps : bool, optional
-        If True (default), analyzes and reports temporal gaps to the console.
+        If True, print a temporal gap report to the console
+        (default: False).
 
     Returns
     -------
@@ -167,14 +169,14 @@ def snapshot_similarity(graphs: List,
 
     gap_ends = {g["end_idx"] for g in gap_info.get("gaps", [])}
 
+    def _nan_row(i: int) -> Dict[str, Any]:
+        return {"Graph": graph_labels[i],
+                **{metric: np.nan for metric in _METRICS}}
+
     rows = []
     for i in range(1, len(graphs)):
         if i in gap_ends:
-            rows.append({"Graph": graph_labels[i],
-                         "jaccard": np.nan,
-                         "edge_persistence": np.nan,
-                         "node_persistence": np.nan,
-                         "temporal_correlation": np.nan})
+            rows.append(_nan_row(i))
             continue
 
         try:
@@ -200,8 +202,13 @@ def snapshot_similarity(graphs: List,
                          "node_persistence": node_pers,
                          "temporal_correlation": tc})
 
-        except Exception as e:
-            print(f"Warning: Error comparing snapshots {i - 1} and {i}: {e}")
+        except _COMPUTE_ERRORS as e:
+            # Emit a NaN row so the output keeps one row per consecutive
+            # pair even when a comparison fails.
+            warnings.warn(
+                f"Error comparing snapshots {i - 1} and {i} "
+                f"({graph_labels[i]}): {e}; reporting NaN for this pair")
+            rows.append(_nan_row(i))
             continue
 
     df = pd.DataFrame(rows)
@@ -215,7 +222,7 @@ def snapshot_similarity(graphs: List,
 
 
 def temporal_correlation_coefficient(
-        graphs: List,
+        graphs: List[ig.Graph],
         graph_labels: Optional[List[str]] = None) -> float:
     """
     Average temporal correlation coefficient over the whole sequence.
@@ -259,8 +266,10 @@ def temporal_correlation_coefficient(
         try:
             c = _temporal_correlation_pair(_neighbor_sets(graphs[i - 1]),
                                            _neighbor_sets(graphs[i]))
-        except Exception as e:
-            print(f"Warning: Error comparing snapshots {i - 1} and {i}: {e}")
+        except _COMPUTE_ERRORS as e:
+            warnings.warn(
+                f"Error comparing snapshots {i - 1} and {i}: {e}; "
+                f"skipping this pair")
             continue
         if not math.isnan(c):
             values.append(c)
@@ -271,7 +280,7 @@ def temporal_correlation_coefficient(
 
 
 def _plot_similarity(df: pd.DataFrame, graph_labels: List[str],
-                     gap_info: Dict, save_path: str) -> None:
+                     gap_info: GapInfo, save_path: str) -> None:
     """
     Plot each similarity metric over time with gap handling.
 
@@ -319,7 +328,7 @@ def _plot_similarity(df: pd.DataFrame, graph_labels: List[str],
             plot_filename = os.path.join(save_path, f"{metric}.pdf")
             fig.savefig(plot_filename, dpi=300, bbox_inches='tight')
             plt.close(fig)
-            print(f"✓ Plot saved: {plot_filename}")
+            logger.info("Plot saved: %s", plot_filename)
 
         except Exception as e:
-            print(f"Warning: Could not plot {metric}: {e}")
+            warnings.warn(f"Could not plot {metric}: {e}")

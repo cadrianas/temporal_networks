@@ -11,12 +11,19 @@ KEY FEATURES:
 - Analyzes edge dynamics (routes that form and dissolve)
 """
 
+import logging
+import os
+import warnings
+
+import igraph as ig
 import pandas as pd
 import matplotlib.pyplot as plt
 import numpy as np
-import os
-from typing import List, Optional, Dict
+from typing import Any, Dict, List, Optional, Set, Tuple
 from ._gap_utilities import (
+    GapInfo,
+    NodeKey,
+    _COMPUTE_ERRORS,
     detect_temporal_gaps,
     print_gap_report,
     plot_with_gap_handling,
@@ -32,12 +39,14 @@ __all__ = [
     "plot_edge_dynamics",
 ]
 
+logger = logging.getLogger(__name__)
+
 
 # ============================================================================
 # MAIN FUNCTIONS
 # ============================================================================
 
-def _edge_identity_set(graph) -> set:
+def _edge_identity_set(graph: ig.Graph) -> Set[Tuple[NodeKey, NodeKey]]:
     """
     Return a graph's edges as a set of identity keys.
 
@@ -60,7 +69,7 @@ def _edge_identity_set(graph) -> set:
     """
     keys = _vertex_keys(graph)
     directed = graph.is_directed()
-    edge_set = set()
+    edge_set: Set[Tuple[NodeKey, NodeKey]] = set()
     for source, target in graph.get_edgelist():
         u, v = keys[source], keys[target]
         if not directed:
@@ -69,7 +78,7 @@ def _edge_identity_set(graph) -> set:
     return edge_set
 
 
-def compute_edge_dynamics(graphs: List,
+def compute_edge_dynamics(graphs: List[ig.Graph],
                          graph_labels: Optional[List[str]] = None) -> pd.DataFrame:
     """
     Compute edge formation and dissolution between consecutive graphs.
@@ -77,6 +86,11 @@ def compute_edge_dynamics(graphs: List,
     Analyzes how the edge structure changes from one temporal snapshot to
     the next, computing the number of edges that appear (formed) and disappear
     (dissolved) at each time step.
+
+    **Gap-aware:** consecutive pairs that straddle a detected temporal gap
+    are reported as NaN, so edge churn is never computed across missing
+    data — consistent with
+    :func:`~temporal_networks.snapshot_similarity`.
 
     Parameters
     ----------
@@ -95,6 +109,9 @@ def compute_edge_dynamics(graphs: List,
         - Edges_Dissolved: Number of edges removed
         - Edges_Formed_Percent: Percentage change relative to previous graph
         - Edges_Dissolved_Percent: Percentage change relative to previous graph
+
+        Gap-straddling pairs are NaN (which makes the count columns float
+        for gapped data).
 
     Examples
     --------
@@ -119,10 +136,26 @@ def compute_edge_dynamics(graphs: List,
     # Validate inputs and set up labels
     graph_labels = validate_and_setup_graphs(graphs, graph_labels, min_length=2)
 
+    # Pairs straddling a detected gap are not comparable: report them as NaN
+    # rather than pretending the snapshots are consecutive.
+    gap_info = detect_temporal_gaps(graph_labels)
+    gap_ends = {g["end_idx"] for g in gap_info.get("gaps", [])}
+
+    def _nan_row(i: int) -> Dict[str, Any]:
+        return {"Graph": graph_labels[i],
+                "Edges_Formed": np.nan,
+                "Edges_Dissolved": np.nan,
+                "Edges_Formed_Percent": np.nan,
+                "Edges_Dissolved_Percent": np.nan}
+
     dynamics_data = []
 
     # Compare consecutive graphs
     for i in range(1, len(graphs)):
+        if i in gap_ends:
+            dynamics_data.append(_nan_row(i))
+            continue
+
         g_prev = graphs[i-1]
         g_curr = graphs[i]
 
@@ -158,8 +191,13 @@ def compute_edge_dynamics(graphs: List,
                 "Edges_Dissolved_Percent": dissolved_percent,
             })
 
-        except Exception as e:
-            print(f"Warning: Error comparing graphs {i-1} and {i}: {e}")
+        except _COMPUTE_ERRORS as e:
+            # Emit a NaN row so the output keeps one row per consecutive
+            # pair even when a comparison fails.
+            warnings.warn(
+                f"Error comparing graphs {i-1} and {i} "
+                f"({graph_labels[i]}): {e}; reporting NaN for this pair")
+            dynamics_data.append(_nan_row(i))
             continue
 
     dynamics_df = pd.DataFrame(dynamics_data)
@@ -168,7 +206,7 @@ def compute_edge_dynamics(graphs: List,
 
 def plot_edge_dynamics(dynamics_df: pd.DataFrame,
                       graph_labels: List[str],
-                      gap_info: Dict,
+                      gap_info: GapInfo,
                       metric: str = "Edges_Formed",
                       output_file: Optional[str] = None,
                       save_path: Optional[str] = None) -> None:
@@ -267,17 +305,17 @@ def plot_edge_dynamics(dynamics_df: pd.DataFrame,
 
             plot_path = os.path.join(save_path, output_file)
             fig.savefig(plot_path, dpi=300, bbox_inches='tight')
-            print(f"✓ Plot saved: {plot_path}")
+            logger.info("Plot saved: %s", plot_path)
         plt.close(fig)
 
     except Exception as e:
-        print(f"Error creating plot: {e}")
+        warnings.warn(f"Error creating plot: {e}")
 
 
-def edge_formation(graphs: List,
+def edge_formation(graphs: List[ig.Graph],
                   graph_labels: Optional[List[str]] = None,
                   save_path: Optional[str] = None,
-                  report_gaps: bool = True) -> pd.DataFrame:
+                  report_gaps: bool = False) -> pd.DataFrame:
     """
     Analyze and plot edge formation over time.
 
@@ -295,7 +333,8 @@ def edge_formation(graphs: List,
     save_path : str, optional
         Directory for saving plots. If None (default), no file is saved.
     report_gaps : bool, optional
-        If True (default), analyzes and reports temporal gaps to the console
+        If True, print a temporal gap report to the console
+        (default: False)
 
     Returns
     -------
@@ -311,8 +350,6 @@ def edge_formation(graphs: List,
     >>> graphs = [ig.Graph.Barabasi(n=30, m=2) for _ in range(6)]
     >>> labels = [f"2024-{i + 1:02d}" for i in range(6)]
     >>> dynamics = edge_formation(graphs, graph_labels=labels, report_gaps=False)
-    Computing edge formation...
-    Plotting edge formation...
     >>> dynamics.shape
     (5, 5)
     """
@@ -326,10 +363,10 @@ def edge_formation(graphs: List,
     if report_gaps:
         print_gap_report(graph_labels, gap_info)
 
-    print("Computing edge formation...")
+    logger.info("Computing edge formation...")
     dynamics_df = compute_edge_dynamics(graphs, graph_labels=graph_labels)
 
-    print("Plotting edge formation...")
+    logger.info("Plotting edge formation...")
     plot_edge_dynamics(dynamics_df, graph_labels, gap_info,
                       metric="Edges_Formed",
                       output_file="edges_formed.pdf", save_path=save_path)
@@ -337,10 +374,10 @@ def edge_formation(graphs: List,
     return dynamics_df
 
 
-def edge_dissolution(graphs: List,
+def edge_dissolution(graphs: List[ig.Graph],
                     graph_labels: Optional[List[str]] = None,
                     save_path: Optional[str] = None,
-                    report_gaps: bool = True) -> pd.DataFrame:
+                    report_gaps: bool = False) -> pd.DataFrame:
     """
     Analyze and plot edge dissolution over time.
 
@@ -358,7 +395,8 @@ def edge_dissolution(graphs: List,
     save_path : str, optional
         Directory for saving plots. If None (default), no file is saved.
     report_gaps : bool, optional
-        If True (default), analyzes and reports temporal gaps to the console
+        If True, print a temporal gap report to the console
+        (default: False)
 
     Returns
     -------
@@ -374,8 +412,6 @@ def edge_dissolution(graphs: List,
     >>> graphs = [ig.Graph.Barabasi(n=30, m=2) for _ in range(6)]
     >>> labels = [f"2024-{i + 1:02d}" for i in range(6)]
     >>> dynamics = edge_dissolution(graphs, graph_labels=labels, report_gaps=False)
-    Computing edge dissolution...
-    Plotting edge dissolution...
     >>> dynamics.shape
     (5, 5)
     """
@@ -389,10 +425,10 @@ def edge_dissolution(graphs: List,
     if report_gaps:
         print_gap_report(graph_labels, gap_info)
 
-    print("Computing edge dissolution...")
+    logger.info("Computing edge dissolution...")
     dynamics_df = compute_edge_dynamics(graphs, graph_labels=graph_labels)
 
-    print("Plotting edge dissolution...")
+    logger.info("Plotting edge dissolution...")
     plot_edge_dynamics(dynamics_df, graph_labels, gap_info,
                       metric="Edges_Dissolved",
                       output_file="edges_dissolved.pdf", save_path=save_path)

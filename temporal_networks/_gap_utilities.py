@@ -5,17 +5,61 @@ This module provides shared logic for temporal gap detection, datetime parsing,
 and gap-aware plotting across the temporal_networks package.
 """
 
+import re
+import warnings
+from collections import Counter
+from datetime import datetime
+from typing import List, Optional, Set, Tuple, TypedDict, Union
+
+import igraph as ig
 import numpy as np
 import pandas as pd
-from datetime import datetime
-from typing import List, Tuple, Optional, Dict
+
+# A vertex identity key: the vertex "name" (or "label") when present —
+# usually a string — otherwise the integer vertex index. See _vertex_keys.
+NodeKey = Union[str, int]
+
+# Exceptions expected from per-snapshot/per-metric computation on degenerate
+# or malformed graphs: igraph numerical failures, metrics undefined for a
+# graph, invalid values (including the duplicate-vertex-identity guard in
+# _vertex_keys). The resilient warn-and-NaN blocks across the package catch
+# exactly these; programming errors (TypeError, AttributeError, KeyError,
+# ...) propagate to the caller instead of being silently converted to NaN.
+_COMPUTE_ERRORS = (ig.InternalError, ValueError, ZeroDivisionError)
+
+
+class GapDict(TypedDict):
+    """One detected temporal gap (an entry of ``GapInfo["gaps"]``)."""
+
+    start_idx: int
+    end_idx: int
+    start_label: str
+    end_label: str
+    gap_size: float
+
+
+class GapInfo(TypedDict):
+    """Return schema of :func:`detect_temporal_gaps`."""
+
+    has_gaps: bool
+    num_gaps: int
+    gaps: List[GapDict]
+    segments: List[Tuple[int, int]]
+    report: str
+
+
+# Pattern of the auto-generated placeholder labels produced by
+# ``validate_and_setup_graphs`` when the user supplies no labels. These
+# intentionally carry no temporal information, so gap detection stays
+# silently disabled for them (no warning).
+_DEFAULT_LABEL_RE = re.compile(r"^Graph \d+$")
 
 
 # ============================================================================
 # VALIDATION UTILITIES
 # ============================================================================
 
-def validate_and_setup_graphs(graphs: List,
+def validate_and_setup_graphs(graphs: List[ig.Graph],
                               graph_labels: Optional[List[str]] = None,
                               min_length: int = 1) -> List[str]:
     """
@@ -51,7 +95,7 @@ def validate_and_setup_graphs(graphs: List,
     return graph_labels
 
 
-def _vertex_keys(graph) -> list:
+def _vertex_keys(graph: ig.Graph) -> List[NodeKey]:
     """
     Return per-vertex identity keys for a graph.
 
@@ -72,6 +116,14 @@ def _vertex_keys(graph) -> list:
         ``name`` values, the ``label`` values, or ``list(range(vcount))`` as a
         fallback when neither attribute is present.
 
+    Raises
+    ------
+    ValueError
+        If two vertices share the same ``name`` (or ``label``) key.
+        Duplicate keys would silently merge distinct vertices in every
+        identity-based comparison (edge sets, neighbourhoods, temporal
+        paths), corrupting results without any visible error.
+
     Examples
     --------
     >>> import igraph as ig
@@ -85,10 +137,30 @@ def _vertex_keys(graph) -> list:
     """
     attrs = graph.vs.attributes()
     if "name" in attrs:
-        return list(graph.vs["name"])
-    if "label" in attrs:
-        return list(graph.vs["label"])
-    return list(range(graph.vcount()))
+        keys, attr = list(graph.vs["name"]), "name"
+    elif "label" in attrs:
+        keys, attr = list(graph.vs["label"]), "label"
+    else:
+        return list(range(graph.vcount()))
+
+    if len(set(keys)) != len(keys):
+        dupes = sorted((k for k, c in Counter(keys).items() if c > 1),
+                       key=str)
+        raise ValueError(
+            f"Duplicate vertex {attr!r} keys {dupes[:5]} in graph: node "
+            f"identity must be unique for cross-snapshot comparison. "
+            f"Rename the duplicated vertices before analysis.")
+    return keys
+
+
+def _active_nodes(
+        edge_set: Set[Tuple[NodeKey, NodeKey]]) -> Set[NodeKey]:
+    """Return the set of node keys that are an endpoint of at least one edge."""
+    nodes: Set[NodeKey] = set()
+    for u, v in edge_set:
+        nodes.add(u)
+        nodes.add(v)
+    return nodes
 
 
 # ============================================================================
@@ -136,11 +208,15 @@ def parse_flexible_datetime(label: str) -> Optional[datetime]:
     except ValueError:
         pass
 
-    # Try YYYY-W## (ISO week format)
+    # Try YYYY-W## (ISO 8601 week format). %G/%V/%u are the ISO week-date
+    # directives; the non-ISO %Y/%W pair drifts by up to a week around
+    # year boundaries (e.g. ISO 2025-W01 starts 2024-12-30), which would
+    # make continuous weekly data report a false gap every January.
     try:
         year, week = label.strip().split('-W')
-        # Convert week number to date (using first day of week)
-        return datetime.strptime(f"{year}-W{int(week)}-1", "%Y-W%W-%w")
+        # Monday of the given ISO week
+        return datetime.strptime(f"{int(year)}-W{int(week):02d}-1",
+                                 "%G-W%V-%u")
     except (ValueError, AttributeError, IndexError):
         pass
 
@@ -254,7 +330,7 @@ def _infer_unit_and_threshold(graph_labels: List[str]) -> Tuple[str, int]:
 def detect_temporal_gaps(graph_labels: List[str],
                          gap_threshold: Optional[int] = None,
                          unit: Optional[str] = None,
-                         verbose: bool = False) -> Dict:
+                         verbose: bool = False) -> GapInfo:
     """
     Detect temporal gaps in a list of labels with detailed reporting.
 
@@ -298,6 +374,15 @@ def detect_temporal_gaps(graph_labels: List[str],
           continuous segments
         - "report" (str): Human-readable gap report
 
+    Warns
+    -----
+    UserWarning
+        If any label cannot be parsed as a date, gap detection is disabled
+        (the result reports no gaps and a single continuous segment) and a
+        ``UserWarning`` is emitted naming the offending labels. No warning
+        is emitted for the auto-generated placeholder labels
+        (``"Graph 1"``, ``"Graph 2"``, ...) used when no labels are given.
+
     Examples
     --------
     >>> labels = ["2024-03", "2024-04", "2024-05", "2024-11", "2024-12"]
@@ -334,6 +419,21 @@ def detect_temporal_gaps(graph_labels: List[str],
 
     # Check if all parsing was successful
     if any(d is None for d in parsed_dates):
+        bad = [label for label, d in zip(graph_labels, parsed_dates)
+               if d is None]
+        # Auto-generated placeholders ("Graph 1", ...) mean the user never
+        # supplied temporal labels — disable silently. Anything else is a
+        # likely formatting mistake the user must hear about, because every
+        # gap-aware function silently degrades when detection is off.
+        if not all(_DEFAULT_LABEL_RE.match(str(label))
+                   for label in graph_labels):
+            warnings.warn(
+                f"Could not parse {len(bad)} of {len(graph_labels)} "
+                f"labels as dates (e.g. {bad[:3]}); temporal gap "
+                f"detection is DISABLED and gap-aware functions will "
+                f"treat the sequence as continuous. Use label formats "
+                f"'YYYY-MM', 'YYYY-MM-DD', 'YYYY-W##', 'YYYY-Q#' or "
+                f"'YYYY' to enable gap detection.")
         report = "Warning: Could not parse all labels. Gap detection disabled."
         return {
             "has_gaps": False,
@@ -344,8 +444,8 @@ def detect_temporal_gaps(graph_labels: List[str],
         }
 
     # Find gaps
-    gaps = []
-    segments = []
+    gaps: List[GapDict] = []
+    segments: List[Tuple[int, int]] = []
     segment_start = 0
 
     for i in range(1, len(parsed_dates)):
@@ -375,7 +475,7 @@ def detect_temporal_gaps(graph_labels: List[str],
     # Generate report
     report = _generate_gap_report_text(graph_labels, gaps, unit=unit)
 
-    result = {
+    result: GapInfo = {
         "has_gaps": len(gaps) > 0,
         "num_gaps": len(gaps),
         "gaps": gaps,
@@ -389,7 +489,7 @@ def detect_temporal_gaps(graph_labels: List[str],
     return result
 
 
-def _generate_gap_report_text(graph_labels: List[str], gaps: List[Dict],
+def _generate_gap_report_text(graph_labels: List[str], gaps: List[GapDict],
                               unit: str = "months") -> str:
     """
     Generate human-readable gap report string.
@@ -455,7 +555,7 @@ def _generate_gap_report_text(graph_labels: List[str], gaps: List[Dict],
 # REPORTING & PUBLIC UTILITIES
 # ============================================================================
 
-def print_gap_report(graph_labels: List[str], gap_info: Dict,
+def print_gap_report(graph_labels: List[str], gap_info: GapInfo,
                      unit: str = "months") -> None:
     """
     Print human-readable gap analysis report to console.
@@ -480,7 +580,8 @@ def print_gap_report(graph_labels: List[str], gap_info: Dict,
         print(_generate_gap_report_text(graph_labels, gap_info.get("gaps", []), unit))
 
 
-def create_gap_dataframe(graph_labels: List[str], gap_info: Dict) -> pd.DataFrame:
+def create_gap_dataframe(graph_labels: List[str],
+                         gap_info: GapInfo) -> pd.DataFrame:
     """
     Create a DataFrame summarizing detected gaps.
 
@@ -546,7 +647,8 @@ def format_large_numbers(x: float, pos: int) -> str:
 
 
 def plot_with_gap_handling(ax, graph_labels: List[str], y_values,
-                           gap_segments: List[Tuple], **kwargs) -> None:
+                           gap_segments: List[Tuple[int, int]],
+                           **kwargs) -> None:
     """
     Plot data with proper handling of temporal gaps.
 

@@ -142,6 +142,57 @@ class TestAllowWait(unittest.TestCase):
 
 
 # ---------------------------------------------------------------------------
+# One-hop-per-snapshot semantics (edge-order independence)
+# ---------------------------------------------------------------------------
+
+class TestOneHopPerSnapshot(unittest.TestCase):
+    """Edges within a snapshot are simultaneous contacts.
+
+    A path may traverse at most one edge per snapshot, and the result must
+    not depend on the order edges were added to the graph (regression test:
+    the single-sweep BFS used to chain through same-snapshot edges only
+    when they happened to be stored in path order).
+    """
+
+    def test_no_multi_hop_within_single_snapshot(self):
+        """Path 0-1-2 in ONE snapshot: 0 cannot reach 2 (one hop max)."""
+        g = ig.Graph(n=3, edges=[(0, 1), (1, 2)])
+        df = temporal_reachability([g], graph_labels=["2024-01"])
+        self.assertTrue(_reach(df, 0, 1))
+        self.assertFalse(_reach(df, 0, 2))
+
+    def test_reachability_independent_of_edge_order(self):
+        g_fwd = ig.Graph(n=3, edges=[(0, 1), (1, 2)])
+        g_rev = ig.Graph(n=3, edges=[(1, 2), (0, 1)])
+        df_fwd = temporal_reachability([g_fwd], graph_labels=["2024-01"])
+        df_rev = temporal_reachability([g_rev], graph_labels=["2024-01"])
+        pd.testing.assert_frame_equal(df_fwd, df_rev)
+
+    def test_second_snapshot_completes_the_hop(self):
+        """The same edge in the NEXT snapshot allows the second hop."""
+        g = ig.Graph(n=3, edges=[(1, 2), (0, 1)])  # unfavourable order
+        df = temporal_reachability([g, g.copy()],
+                                   graph_labels=["2024-01", "2024-02"])
+        self.assertTrue(_reach(df, 0, 2))
+        self.assertEqual(
+            df[(df["source"] == 0) & (df["target"] == 2)]
+            ["first_arrival_idx"].iloc[0], 2.0)
+
+    def test_betweenness_independent_of_edge_order(self):
+        g_fwd = ig.Graph(n=3, edges=[(0, 1), (1, 2)])
+        g_rev = ig.Graph(n=3, edges=[(1, 2), (0, 1)])
+        labels = ["2024-01", "2024-02"]
+        bt_fwd = temporal_betweenness([g_fwd, g_fwd.copy()],
+                                      graph_labels=labels, report_gaps=False)
+        bt_rev = temporal_betweenness([g_rev, g_rev.copy()],
+                                      graph_labels=labels, report_gaps=False)
+        pd.testing.assert_frame_equal(bt_fwd, bt_rev)
+        # Node 1 brokers the 0->2 and 2->0 foremost paths.
+        self.assertEqual(
+            float(bt_fwd[bt_fwd["node"] == 1]["betweenness"].iloc[0]), 1.0)
+
+
+# ---------------------------------------------------------------------------
 # Gap-blocking
 # ---------------------------------------------------------------------------
 
@@ -154,6 +205,34 @@ class TestGapBlocking(unittest.TestCase):
                                    cross_gaps=False)
         self.assertTrue(_reach(df, "A", "B"))
         self.assertFalse(_reach(df, "A", "C"))
+
+    def test_post_gap_segment_paths_still_valid(self):
+        """Paths confined to a post-gap segment are NOT blocked.
+
+        Regression test: the BFS frontier used to die at the gap boundary
+        (source included), so nothing was ever reachable after the first
+        gap. A-B pre-gap; A-C then C-D post-gap: A must reach C and D via
+        within-segment paths, while B->C (which would need waiting across
+        the gap) stays blocked.
+        """
+        def g(edges):
+            gr = ig.Graph(n=4)
+            gr.vs["name"] = ["A", "B", "C", "D"]
+            gr.add_edges(edges)
+            return gr
+
+        graphs = [g([(0, 1)]), g([(0, 2)]), g([(2, 3)])]
+        labels = ["2024-01", "2024-03", "2024-04"]  # gap after 2024-01
+        df = temporal_reachability(graphs, graph_labels=labels,
+                                   cross_gaps=False)
+        self.assertTrue(_reach(df, "A", "B"))    # pre-gap segment
+        self.assertTrue(_reach(df, "A", "C"))    # post-gap segment
+        self.assertTrue(_reach(df, "A", "D"))    # two hops, post-gap only
+        self.assertEqual(
+            df[(df["source"] == "A") & (df["target"] == "D")]
+            ["first_arrival_idx"].iloc[0], 3.0)
+        # B's only edge is pre-gap: reaching C would cross the gap.
+        self.assertFalse(_reach(df, "B", "C"))
 
     def test_cross_gaps_true_allows_path_through_gap(self):
         graphs, labels = _gap_chain()
@@ -286,12 +365,9 @@ class TestErrorHandling(unittest.TestCase):
     def test_bfs_exception_warns_and_skips(self):
         g0 = ig.Graph(n=2, edges=[(0, 1)])
         with patch("temporal_networks.temporal_paths._bfs_from_source",
-                   side_effect=Exception("boom")):
-            f = io.StringIO()
-            with contextlib.redirect_stdout(f):
+                   side_effect=ig.InternalError("boom")):
+            with self.assertWarns(UserWarning):
                 df = temporal_reachability([g0], graph_labels=["t"])
-            out = f.getvalue()
-        self.assertIn("Warning", out)
         self.assertTrue(df.empty)
         self.assertEqual(list(df.columns),
                          ["source", "target", "reachable",
@@ -300,12 +376,9 @@ class TestErrorHandling(unittest.TestCase):
     def test_union_nodes_exception_returns_empty(self):
         g0 = ig.Graph(n=2, edges=[(0, 1)])
         with patch("temporal_networks.temporal_paths._union_nodes",
-                   side_effect=Exception("no nodes")):
-            f = io.StringIO()
-            with contextlib.redirect_stdout(f):
+                   side_effect=ig.InternalError("no nodes")):
+            with self.assertWarns(UserWarning):
                 df = temporal_reachability([g0], graph_labels=["t"])
-            out = f.getvalue()
-        self.assertIn("Warning", out)
         self.assertTrue(df.empty)
 
 
@@ -384,6 +457,48 @@ class TestTemporalBetweenness(unittest.TestCase):
         # Allowed: B brokers the A→C path
         self.assertGreater(_betw(allowed, "B"), 0.0)
 
+    def test_post_gap_brokerage_counts(self):
+        """A broker acting entirely inside a post-gap segment scores.
+
+        Regression test: the foremost-path pass used to die at the gap,
+        zeroing betweenness for all post-gap activity. A-C then C-D after
+        the gap: C brokers the within-segment A->D pair (raw dependency 1).
+        """
+        def g(edges):
+            gr = ig.Graph(n=4)
+            gr.vs["name"] = ["A", "B", "C", "D"]
+            gr.add_edges(edges)
+            return gr
+
+        graphs = [g([(0, 1)]), g([(0, 2)]), g([(2, 3)])]
+        labels = ["2024-01", "2024-03", "2024-04"]  # gap after 2024-01
+        bt = temporal_betweenness(graphs, graph_labels=labels,
+                                  cross_gaps=False, normalized=False,
+                                  report_gaps=False)
+        self.assertEqual(_betw(bt, "C"), 1.0)
+
+    def test_pair_counted_once_across_segments(self):
+        """A pair reachable in two segments is counted at its foremost
+        arrival only — the second segment must not double the credit."""
+        def g(edges):
+            gr = ig.Graph(n=3)
+            gr.vs["name"] = ["A", "B", "C"]
+            gr.add_edges(edges)
+            return gr
+
+        # A-B, B-C before the gap; the same pattern again after it.
+        graphs = [g([(0, 1)]), g([(1, 2)]), g([(0, 1)]), g([(1, 2)])]
+        labels = ["2024-01", "2024-02", "2024-04", "2024-05"]
+        bt = temporal_betweenness(graphs, graph_labels=labels,
+                                  cross_gaps=False, normalized=False,
+                                  report_gaps=False)
+        # B brokers A->C, whose foremost arrival is in the first segment.
+        # The identical second-segment route must not add credit (a
+        # double-counting bug would report 2.0). C->A is unreachable in
+        # both segments (edges appear in the wrong temporal order), so
+        # the total is exactly 1.0.
+        self.assertEqual(_betw(bt, "B"), 1.0)
+
     def test_save_path_writes_pdf(self):
         graphs, labels = _chain()
         with tempfile.TemporaryDirectory() as tmp:
@@ -398,13 +513,10 @@ class TestTemporalBetweenness(unittest.TestCase):
         g0 = ig.Graph(n=3, edges=[(0, 1)])
         with patch("temporal_networks.temporal_paths."
                    "_foremost_paths_from_source",
-                   side_effect=Exception("boom")):
-            f = io.StringIO()
-            with contextlib.redirect_stdout(f):
+                   side_effect=ig.InternalError("boom")):
+            with self.assertWarns(UserWarning):
                 bt = temporal_betweenness([g0], graph_labels=["t"],
                                           report_gaps=False)
-            out = f.getvalue()
-        self.assertIn("Warning", out)
         # All sources skipped → every node has zero betweenness
         self.assertTrue((bt["betweenness"] == 0.0).all())
 

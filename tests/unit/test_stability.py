@@ -108,18 +108,21 @@ class TestTemporalCorrelationCoefficient(unittest.TestCase):
 
 
 class TestErrorHandling(unittest.TestCase):
-    def test_compute_exception_warns_and_skips(self):
+    def test_compute_exception_warns_and_emits_nan_row(self):
+        """A failing pair warns and yields a NaN row, preserving shape."""
         g = ig.Graph(n=4, edges=[(0, 1)])
         graphs = [g.copy(), g.copy()]
         with patch("temporal_networks.stability._edge_identity_set",
-                   side_effect=Exception("boom")):
-            f = io.StringIO()
-            with contextlib.redirect_stdout(f):
+                   side_effect=ig.InternalError("boom")):
+            with self.assertWarns(UserWarning):
                 df = snapshot_similarity(graphs, graph_labels=["a", "b"],
                                          report_gaps=False)
-            out = f.getvalue()
-        self.assertIn("Warning: Error comparing snapshots 0 and 1: boom", out)
-        self.assertTrue(df.empty)
+        # One row per consecutive pair, even on failure.
+        self.assertEqual(len(df), 1)
+        self.assertEqual(df.loc[0, "Graph"], "b")
+        for metric in ["jaccard", "edge_persistence",
+                       "node_persistence", "temporal_correlation"]:
+            self.assertTrue(math.isnan(df.loc[0, metric]))
         self.assertEqual(list(df.columns),
                          ["Graph", "jaccard", "edge_persistence",
                           "node_persistence", "temporal_correlation"])

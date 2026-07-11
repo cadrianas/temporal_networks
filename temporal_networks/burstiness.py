@@ -15,20 +15,29 @@ KEY FEATURES:
   for an entity being inactive.
 """
 
+import logging
 import os
+import warnings
+
+import igraph as ig
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-from typing import List, Optional, Dict, Set
+from typing import Dict, List, Optional
 from ._gap_utilities import (
+    GapDict,
+    _COMPUTE_ERRORS,
     detect_temporal_gaps,
     print_gap_report,
     validate_and_setup_graphs,
     parse_flexible_datetime,
     calculate_time_difference,
     _infer_unit_and_threshold,
+    _active_nodes,
 )
 from .edge_formation_dissolution import _edge_identity_set
+
+logger = logging.getLogger(__name__)
 
 __all__ = [
     "inter_event_times",
@@ -44,16 +53,8 @@ _BURST_COLUMNS = ["entity", "n_events", "mean_interval", "std_interval",
 # INTERNAL HELPERS
 # ============================================================================
 
-def _active_nodes(edge_set: Set) -> Set:
-    """Return the set of node keys that are an endpoint of at least one edge."""
-    nodes: Set = set()
-    for u, v in edge_set:
-        nodes.add(u)
-        nodes.add(v)
-    return nodes
-
-
-def _entity_active_indices(graphs: List, by: str) -> Dict[str, List[int]]:
+def _entity_active_indices(graphs: List[ig.Graph],
+                           by: str) -> Dict[str, List[int]]:
     """
     Map each entity to the ordered snapshot indices where it is active.
 
@@ -83,8 +84,9 @@ def _entity_active_indices(graphs: List, by: str) -> Dict[str, List[int]]:
                 keys = {str(n) for n in _active_nodes(edges)}
             for key in keys:
                 active.setdefault(key, []).append(i)
-        except Exception as e:
-            print(f"Warning: Error processing snapshot {i}: {e}")
+        except _COMPUTE_ERRORS as e:
+            warnings.warn(f"Error processing snapshot {i}: {e}; "
+                          f"skipping this snapshot")
             continue
     return active
 
@@ -105,7 +107,7 @@ def _interval_duration(i_a: int, i_b: int, graph_labels: List[str],
     return float(i_b - i_a)
 
 
-def _spans_gap(i_a: int, i_b: int, gaps: List[Dict]) -> bool:
+def _spans_gap(i_a: int, i_b: int, gaps: List[GapDict]) -> bool:
     """Whether the interval ``[i_a, i_b]`` straddles any detected gap break."""
     for gap in gaps:
         if i_a <= gap["start_idx"] and i_b >= gap["end_idx"]:
@@ -117,7 +119,7 @@ def _spans_gap(i_a: int, i_b: int, gaps: List[Dict]) -> bool:
 # MAIN FUNCTIONS
 # ============================================================================
 
-def inter_event_times(graphs: List,
+def inter_event_times(graphs: List[ig.Graph],
                       graph_labels: Optional[List[str]] = None,
                       by: str = "edge",
                       exclude_gaps: bool = True) -> pd.DataFrame:
@@ -158,8 +160,9 @@ def inter_event_times(graphs: List,
         - ``interval``: duration in the inferred time unit
         - ``spans_gap``: whether the interval crosses a detected data gap
 
-        Sorted by ``entity`` then ``start_label``. Empty input returns an empty
-        DataFrame with these columns.
+        Sorted by ``entity`` then snapshot order (chronological, not
+        lexicographic). Empty input returns an empty DataFrame with these
+        columns.
 
     Examples
     --------
@@ -201,25 +204,30 @@ def inter_event_times(graphs: List,
                     "interval": _interval_duration(i_a, i_b, graph_labels,
                                                    unit),
                     "spans_gap": spans,
+                    # snapshot index, for chronological sorting (string
+                    # labels like "Graph 10" sort before "Graph 2")
+                    "_start_idx": i_a,
                 })
-            except Exception as e:
-                print(f"Warning: Error timing entity {entity} between "
-                      f"snapshots {i_a} and {i_b}: {e}")
+            except _COMPUTE_ERRORS as e:
+                warnings.warn(f"Error timing entity {entity} between "
+                              f"snapshots {i_a} and {i_b}: {e}; "
+                              f"skipping this interval")
                 continue
 
     df = pd.DataFrame(rows)
     if df.empty:
         return pd.DataFrame(columns=_IET_COLUMNS)
-    return (df.sort_values(["entity", "start_label"])
+    return (df.sort_values(["entity", "_start_idx"])
+              .drop(columns="_start_idx")
               .reset_index(drop=True))
 
 
-def burstiness_coefficient(graphs: List,
+def burstiness_coefficient(graphs: List[ig.Graph],
                            graph_labels: Optional[List[str]] = None,
                            by: str = "edge",
                            exclude_gaps: bool = True,
                            save_path: Optional[str] = None,
-                           report_gaps: bool = True) -> pd.DataFrame:
+                           report_gaps: bool = False) -> pd.DataFrame:
     """
     Goh-Barabasi burstiness coefficient per edge or node.
 
@@ -248,7 +256,8 @@ def burstiness_coefficient(graphs: List,
         Directory for saving the burstiness-distribution plot. If None
         (default), no file is saved.
     report_gaps : bool, optional
-        If True (default), analyzes and reports temporal gaps to the console.
+        If True, print a temporal gap report to the console
+        (default: False).
 
     Returns
     -------
@@ -326,8 +335,9 @@ def burstiness_coefficient(graphs: List,
                 "std_interval": std,
                 "burstiness": burst,
             })
-        except Exception as e:
-            print(f"Warning: Error scoring entity {entity}: {e}")
+        except _COMPUTE_ERRORS as e:
+            warnings.warn(f"Error scoring entity {entity}: {e}; "
+                          f"skipping this entity")
             continue
 
     df = pd.DataFrame(rows)
@@ -378,7 +388,7 @@ def _plot_burstiness(df: pd.DataFrame, by: str, save_path: str) -> None:
         plot_filename = os.path.join(save_path, f"burstiness_{by}.pdf")
         fig.savefig(plot_filename, dpi=300, bbox_inches='tight')
         plt.close(fig)
-        print(f"✓ Plot saved: {plot_filename}")
+        logger.info("Plot saved: %s", plot_filename)
 
     except Exception as e:
-        print(f"Warning: Could not plot burstiness distribution: {e}")
+        warnings.warn(f"Could not plot burstiness distribution: {e}")

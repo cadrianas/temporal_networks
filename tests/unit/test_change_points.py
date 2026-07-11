@@ -151,6 +151,103 @@ class TestGapAwareness(unittest.TestCase):
         # At least one method should detect the jump
         self.assertTrue(not cp_z.empty or not cp_d.empty)
 
+    def test_segments_align_to_rows_of_pairwise_frames(self):
+        """Frames with one row per PAIR must split at the right rows.
+
+        Regression test: gap_info["segments"] indexes the n labels, but
+        snapshot_similarity output has n-1 rows starting at the second
+        label. Segments used to be applied as raw row indices, silently
+        pooling statistics across the gap boundary.
+        """
+        from temporal_networks import detect_temporal_gaps
+
+        labels = ["2024-01", "2024-02", "2024-03",
+                  "2024-08", "2024-09", "2024-10"]      # gap: 03 -> 08
+        gi = detect_temporal_gaps(labels)
+        self.assertEqual(gi["segments"], [(0, 3), (3, 6)])
+
+        # Similarity-shaped frame: one row per consecutive pair. The level
+        # shift coincides exactly with the gap, so with row-aligned
+        # segments both segments are constant and nothing is flagged.
+        pair_df = pd.DataFrame({
+            "Graph": labels[1:],                        # 5 rows, from 02
+            "metric": [1.0, 1.0, 50.0, 50.0, 50.0],
+        })
+        cp = detect_change_points(pair_df, threshold=1.2, gap_info=gi)
+        self.assertTrue(cp.empty)
+        # Misaligned slicing would pool [1, 1, 50] into the first segment
+        # and flag the post-gap row "2024-08" (z ≈ 1.41 > 1.2).
+
+    def test_full_length_frames_unchanged_by_row_alignment(self):
+        """One-row-per-label frames keep the exact same segmentation."""
+        from temporal_networks import detect_temporal_gaps
+
+        labels = ["2024-01", "2024-02", "2024-03",
+                  "2024-08", "2024-09", "2024-10"]
+        gi = detect_temporal_gaps(labels)
+        df = _simple_df([1.0, 1.0, 1.0, 50.0, 50.0, 50.0], labels)
+        # Level shift at the gap boundary: per-segment stats are constant.
+        cp = detect_change_points(df, threshold=1.2, gap_info=gi)
+        self.assertTrue(cp.empty)
+
+    def test_missing_label_col_falls_back_to_index_segments(self):
+        """Without a label column the provided segments are used, clipped."""
+        df = pd.DataFrame({"metric": [1.0, 1.0, 50.0, 50.0]})
+        gi = {"has_gaps": True, "segments": [(0, 2), (2, 10)],
+              "gaps": [{"start_idx": 1, "end_idx": 2,
+                        "start_label": "a", "end_label": "b",
+                        "gap_size": 2.0}]}
+        cp = detect_change_points(df, threshold=1.2, gap_info=gi,
+                                  label_col="Graph")
+        self.assertTrue(cp.empty)                       # no crash, no flags
+
+
+# ---------------------------------------------------------------------------
+# Unattainable-threshold warning (zscore)
+# ---------------------------------------------------------------------------
+
+class TestUnattainableThresholdWarning(unittest.TestCase):
+    """With population std, max |z| in an n-point segment is sqrt(n - 1),
+    so threshold=3.0 can never fire in segments shorter than 11 points."""
+
+    def test_short_segment_warns(self):
+        df = _simple_df([1.0, 2.0, 1.0, 2.0, 9.0])       # 5 points
+        with self.assertWarns(UserWarning) as ctx:
+            detect_change_points(df, method="zscore", threshold=3.0)
+        msg = str(ctx.warning)
+        self.assertIn("11 points", msg)                   # required length
+        self.assertIn("sqrt(n - 1)", msg)
+
+    def test_long_segment_does_not_warn(self):
+        import warnings as _warnings
+        df = _simple_df([1.0] * 12)                       # 12 >= 11
+        with _warnings.catch_warnings(record=True) as w:
+            _warnings.simplefilter("always")
+            detect_change_points(df, method="zscore", threshold=3.0)
+        self.assertFalse([x for x in w
+                          if "can never flag" in str(x.message)])
+
+    def test_diff_method_does_not_warn(self):
+        import warnings as _warnings
+        df = _simple_df([1.0, 2.0, 1.0])
+        with _warnings.catch_warnings(record=True) as w:
+            _warnings.simplefilter("always")
+            detect_change_points(df, method="diff", threshold=3.0)
+        self.assertFalse([x for x in w
+                          if "can never flag" in str(x.message)])
+
+    def test_gap_segments_checked_individually(self):
+        """12 rows split by a gap into 6+6: threshold 3.0 unattainable in
+        both halves even though the whole series would be long enough."""
+        from temporal_networks import detect_temporal_gaps
+        labels = ([f"2024-{m:02d}" for m in range(1, 7)] +
+                  [f"2025-{m:02d}" for m in range(6, 12)])
+        gi = detect_temporal_gaps(labels)
+        df = _simple_df(list(range(12)), labels)
+        with self.assertWarns(UserWarning):
+            detect_change_points(df, method="zscore", threshold=3.0,
+                                 gap_info=gi)
+
 
 # ---------------------------------------------------------------------------
 # PELT (optional dependency)
@@ -206,7 +303,9 @@ class TestFlagAnomalousSnapshots(unittest.TestCase):
         g_dense = ig.Graph.Full(n=6)
         g_sparse = ig.Graph(n=6, edges=[(0, 1)])
         graphs = [g_dense] * 8 + [g_sparse] + [g_dense] * 8
-        labels = [f"2024-{i+1:02d}" for i in range(17)]
+        # Valid consecutive months rolling over into 2025 (months 13-17
+        # of a single year would be unparseable labels).
+        labels = [f"{2024 + i // 12}-{i % 12 + 1:02d}" for i in range(17)]
         flags = flag_anomalous_snapshots(graphs, graph_labels=labels,
                                          threshold=2.0)
         self.assertFalse(flags.empty)

@@ -13,11 +13,17 @@ KEY FEATURES:
 - Handles gapped data correctly in temporal plots
 """
 
+import logging
+import os
+import warnings
+
+import igraph as ig
 import pandas as pd
 import matplotlib.pyplot as plt
-import os
-from typing import List, Optional, Dict
+from typing import List, Optional
 from ._gap_utilities import (
+    GapInfo,
+    _COMPUTE_ERRORS,
     detect_temporal_gaps,
     print_gap_report,
     plot_with_gap_handling,
@@ -25,16 +31,19 @@ from ._gap_utilities import (
 )
 
 
+logger = logging.getLogger(__name__)
+
+
 # ============================================================================
 # MAIN FUNCTION
 # ============================================================================
 
-def calculate_centralities(graphs: List,
+def calculate_centralities(graphs: List[ig.Graph],
                           graph_labels: Optional[List[str]] = None,
                           filename: Optional[str] = None,
-                          report_gaps: bool = True,
+                          report_gaps: bool = False,
                           visualize_evolution: bool = False,
-                          save_path: str = "plots/") -> pd.DataFrame:
+                          save_path: Optional[str] = None) -> pd.DataFrame:
     """
     Compute comprehensive centrality measures for nodes across multiple graphs.
 
@@ -58,12 +67,15 @@ def calculate_centralities(graphs: List,
         CSV filename for saving results. If None (default), results are not
         saved to file (no files are written unless a filename is given).
     report_gaps : bool, optional
-        If True (default), analyzes and reports temporal gaps to the console
+        If True, print a temporal gap report to the console
+        (default: False)
     visualize_evolution : bool, optional
         If True, creates plots showing how centrality measures evolve over time
         (default: False). This is useful for tracking important nodes.
+        Requires ``save_path``; a warning is emitted if it is missing.
     save_path : str, optional
-        Directory for saving visualizations (default: "plots/")
+        Directory for saving visualizations. If None (default), no plot
+        files are written.
 
     Returns
     -------
@@ -133,66 +145,65 @@ def calculate_centralities(graphs: List,
             node_labels = graph.vs["label"]
         else:
             node_labels = [f"Node_{i}" for i in range(n)]
-            print(
-                f"Warning: Graph {graph_name} has no 'name' or 'label' attribute. "
-                "Using node indices."
-            )
+            warnings.warn(
+                f"Graph {graph_name} has no 'name' or 'label' attribute. "
+                "Using node indices.")
 
         # Compute centrality measures
         try:
             degree_centrality = graph.degree()
-        except Exception:
+        except _COMPUTE_ERRORS:
             degree_centrality = [None] * n
 
         try:
             closeness_centrality = graph.closeness()
-        except Exception:
+        except _COMPUTE_ERRORS:
             closeness_centrality = [None] * n
 
         try:
             betweenness_centrality = graph.betweenness(directed=graph.is_directed())
-        except Exception:
+        except _COMPUTE_ERRORS:
             betweenness_centrality = [None] * n
 
         # Eigenvector centrality is undefined for graphs with no edges
         if graph.ecount() > 0:
             try:
                 eigenvector_centrality = graph.eigenvector_centrality()
-            except Exception:
+            except _COMPUTE_ERRORS:
                 eigenvector_centrality = [None] * n
         else:
             eigenvector_centrality = [None] * n
 
         try:
             pagerank = graph.pagerank()
-        except Exception:
+        except _COMPUTE_ERRORS:
             pagerank = [None] * n
 
         try:
             harmonic_centrality = graph.harmonic_centrality()
-        except Exception:
+        except _COMPUTE_ERRORS:
             harmonic_centrality = [None] * n
 
         try:
             eccentricity = graph.eccentricity()
-        except Exception:
+        except _COMPUTE_ERRORS:
             eccentricity = [None] * n
 
         try:
             clustering_coefficient = graph.transitivity_local_undirected()
-        except Exception:
+        except _COMPUTE_ERRORS:
             clustering_coefficient = [None] * n
 
         # HITS hub/authority scores are only meaningful for directed graphs
         if graph.is_directed():
             try:
                 authority_score = graph.authority_score()
-            except Exception:
+            except _COMPUTE_ERRORS:
                 authority_score = [None] * n
 
             try:
                 hub_score = graph.hub_score()
-            except Exception:
+            except _COMPUTE_ERRORS:
                 hub_score = [None] * n
         else:
             authority_score = [None] * n
@@ -224,22 +235,26 @@ def calculate_centralities(graphs: List,
     if filename:
         try:
             centralities_df.to_csv(filename, index=False)
-            print(f"✓ Centralities results saved to {filename}")
-        except Exception as e:
-            print(f"Error saving centralities to CSV: {e}")
+            logger.info("Centralities results saved to %s", filename)
+        except OSError as e:
+            warnings.warn(f"Error saving centralities to CSV: {e}")
 
     # Optional: Visualize centrality evolution over time
     if visualize_evolution:
-        _visualize_centrality_evolution(
-            centralities_df, graph_labels, gap_info, save_path
-        )
+        if save_path is None:
+            warnings.warn("visualize_evolution=True but save_path is None; "
+                          "no plots will be saved")
+        else:
+            _visualize_centrality_evolution(
+                centralities_df, graph_labels, gap_info, save_path
+            )
 
     return centralities_df
 
 
 def _visualize_centrality_evolution(centralities_df: pd.DataFrame,
                                    graph_labels: List[str],
-                                   gap_info: Dict,
+                                   gap_info: GapInfo,
                                    save_path: str) -> None:
     """
     Visualize how centrality measures evolve over time.
@@ -295,7 +310,8 @@ def _visualize_centrality_evolution(centralities_df: pd.DataFrame,
             )
             fig.savefig(plot_filename, dpi=300, bbox_inches='tight')
             plt.close(fig)
-            print(f"✓ Centrality evolution plot saved: {plot_filename}")
+            logger.info("Centrality evolution plot saved: %s",
+                        plot_filename)
 
         except Exception as e:
-            print(f"Warning: Could not plot {measure}: {e}")
+            warnings.warn(f"Could not plot {measure}: {e}")

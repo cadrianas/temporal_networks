@@ -55,13 +55,20 @@ Repository = "https://github.com/cadrianas/temporal_networks"
 "Bug Tracker" = "https://github.com/cadrianas/temporal_networks/issues"
 
 [tool.setuptools.packages.find]
-exclude = ["tests*", "benchmarks*", "examples*"]
+include = ["temporal_networks*"]
 
 [tool.setuptools.package-data]
 temporal_networks = ["py.typed"]
 
 [tool.pytest.ini_options]
 addopts = "-v"
+filterwarnings = [
+    # Many unit tests intentionally use non-date shorthand labels
+    # ("t0", "a", ...); the resulting gap-detection-disabled warning is
+    # expected there. Tests that verify the warning use assertWarns,
+    # which is unaffected by this filter.
+    "ignore:Could not parse .* labels as dates:UserWarning",
+]
 
 [tool.ruff]
 line-length = 88

@@ -12,11 +12,17 @@ KEY FEATURES:
 - Tracks community structure evolution
 """
 
+import logging
+import os
+import warnings
+
+import igraph as ig
 import pandas as pd
 import matplotlib.pyplot as plt
-import os
-from typing import List, Optional, Dict
+from typing import Dict, List, Optional
 from ._gap_utilities import (
+    GapInfo,
+    _COMPUTE_ERRORS,
     detect_temporal_gaps,
     print_gap_report,
     plot_with_gap_handling,
@@ -24,16 +30,36 @@ from ._gap_utilities import (
     validate_and_setup_graphs
 )
 
+logger = logging.getLogger(__name__)
+
+# All supported algorithms, mapping public name -> igraph method name.
+_AVAILABLE_ALGORITHMS = {
+    "leiden": "community_leiden",
+    "louvain": "community_multilevel",
+    "walktrap": "community_walktrap",
+    "fast_greedy": "community_fastgreedy",
+    "label_prop": "community_label_propagation",
+    "spinglass": "community_spinglass",
+    "infomap": "community_infomap",
+}
+
+# Spinglass raises on any disconnected graph, and real temporal snapshots
+# are usually disconnected, so it is opt-in rather than default.
+_DEFAULT_ALGORITHMS = [name for name in _AVAILABLE_ALGORITHMS
+                       if name != "spinglass"]
+
 
 # ============================================================================
 # MAIN FUNCTION
 # ============================================================================
 
-def communities_measures(graphs: List,
+def communities_measures(graphs: List[ig.Graph],
                         graph_labels: Optional[List[str]] = None,
+                        algorithms: Optional[List[str]] = None,
                         save_path: Optional[str] = None,
                         visualisation: bool = True,
-                        report_gaps: bool = True) -> dict:
+                        report_gaps: bool = False
+                        ) -> Dict[str, pd.DataFrame]:
     """
     Detect and analyze community structures using multiple algorithms.
 
@@ -52,19 +78,41 @@ def communities_measures(graphs: List,
         Labels for each graph (e.g., ["2019-01", "2019-02", ...])
         Supports multiple formats: YYYY-MM, YYYY-MM-DD, YYYY-W##, YYYY-Q#, YYYY
         If not provided, defaults to "Graph 1", "Graph 2", etc.
+    algorithms : list of str, optional
+        Community detection algorithms to run. Available: ``"leiden"``,
+        ``"louvain"``, ``"walktrap"``, ``"fast_greedy"``, ``"label_prop"``,
+        ``"spinglass"``, ``"infomap"``. If None (default), all of them
+        except ``"spinglass"`` are run — spinglass raises an error on any
+        disconnected graph, so it must be requested explicitly (and only
+        for connected snapshots).
     save_path : str, optional
         Directory path for saving results and visualizations. If None
         (default), no files are saved.
     visualisation : bool, optional
         If True (default), generates plots for community evolution
     report_gaps : bool, optional
-        If True (default), analyzes and reports temporal gaps to the console
+        If True, print a temporal gap report to the console
+        (default: False)
 
     Returns
     -------
     dict
         Dictionary with results for each algorithm, mapping algorithm names to
-        DataFrames containing community assignments
+        DataFrames containing community assignments. Every requested
+        algorithm is present as a key; an algorithm that failed on all
+        graphs maps to an empty DataFrame (with a warning), never a
+        missing key.
+
+    Raises
+    ------
+    ValueError
+        If ``algorithms`` contains an unknown algorithm name.
+
+    Warns
+    -----
+    UserWarning
+        When an algorithm fails on a graph (that snapshot is skipped for
+        that algorithm) or produces no communities at all.
 
     Examples
     --------
@@ -79,13 +127,14 @@ def communities_measures(graphs: List,
 
     Notes
     -----
-    Community detection algorithms used:
+    Community detection algorithms available:
     - Leiden: Optimizes modularity with refined granularity
     - Louvain: Fast modularity optimization
     - Walktrap: Uses random walks to find communities
     - Fast Greedy: Greedy optimization of modularity
     - Label Propagation: Fast method based on label propagation
-    - Spinglass: Based on statistical mechanics
+    - Spinglass: Based on statistical mechanics (connected graphs only;
+      opt-in via ``algorithms``)
     - Infomap: Information-theoretic approach
 
     Temporal Gaps:
@@ -107,23 +156,23 @@ def communities_measures(graphs: List,
     if save_path is not None:
         os.makedirs(save_path, exist_ok=True)
 
-    # Define community detection algorithms
-    # Note: Some require undirected graphs, so we convert as needed
-    community_algorithms = [
-        ("leiden", "community_leiden"),
-        ("louvain", "community_multilevel"),
-        ("walktrap", "community_walktrap"),
-        ("fast_greedy", "community_fastgreedy"),
-        ("label_prop", "community_label_propagation"),
-        ("spinglass", "community_spinglass"),
-        ("infomap", "community_infomap")
-    ]
+    # Resolve and validate the algorithm selection. Some algorithms
+    # require undirected graphs, so graphs are converted as needed below.
+    if algorithms is None:
+        algorithms = list(_DEFAULT_ALGORITHMS)
+    unknown = [a for a in algorithms if a not in _AVAILABLE_ALGORITHMS]
+    if unknown:
+        raise ValueError(
+            f"Unknown algorithm(s) {unknown}. Available: "
+            f"{list(_AVAILABLE_ALGORITHMS)}")
+    community_algorithms = [(name, _AVAILABLE_ALGORITHMS[name])
+                            for name in algorithms]
 
     results = {}
 
     # Apply each algorithm
     for algo_name, algo_func in community_algorithms:
-        print(f"\nProcessing algorithm: {algo_name}")
+        logger.info("Processing algorithm: %s", algo_name)
         all_communities = []
         num_communities_list = []
 
@@ -167,9 +216,10 @@ def communities_measures(graphs: List,
                         partition = getattr(g, algo_func)(edge_weights=weights)
                     else:
                         partition = getattr(g, algo_func)(weights=weights)
-                except Exception as e:
-                    print(f"  Warning: Algorithm {algo_name} failed on "
-                          f"graph {graph_label}: {e}")
+                except _COMPUTE_ERRORS as e:
+                    warnings.warn(f"Algorithm {algo_name} failed on "
+                                  f"graph {graph_label}: {e}; skipping "
+                                  f"this snapshot for {algo_name}")
                     continue
 
                 # Store community assignments
@@ -197,22 +247,28 @@ def communities_measures(graphs: List,
                     ),
                 })
 
-            except Exception as e:
-                print(f"  Error processing graph {graph_label} with "
-                      f"algorithm {algo_name}: {e}")
+            except _COMPUTE_ERRORS as e:
+                warnings.warn(f"Error processing graph {graph_label} with "
+                              f"algorithm {algo_name}: {e}; skipping this "
+                              f"snapshot for {algo_name}")
                 continue
 
-        # Convert to DataFrame and save
+        # Convert to DataFrame and save. Every requested algorithm gets a
+        # key in the result, so callers never hit a surprise KeyError.
         if all_communities:
             communities_df = pd.DataFrame(all_communities)
             if save_path is not None:
                 csv_filename = os.path.join(
                     save_path, f"communities_{algo_name}_assignments.csv")
                 communities_df.to_csv(csv_filename, index=False)
-                print(f"  ✓ Community assignments saved: {csv_filename}")
+                logger.info("Community assignments saved: %s",
+                            csv_filename)
             results[algo_name] = communities_df
         else:
-            print(f"  Warning: No communities detected for {algo_name}")
+            warnings.warn(f"No communities detected for {algo_name}; "
+                          f"its result is an empty DataFrame")
+            results[algo_name] = pd.DataFrame(
+                columns=["Graph", "Node", "Community"])
             continue
 
         # Save statistics
@@ -221,7 +277,8 @@ def communities_measures(graphs: List,
             stats_csv_filename = os.path.join(
                 save_path, f"communities_{algo_name}_stats.csv")
             stats_df.to_csv(stats_csv_filename, index=False)
-            print(f"  ✓ Community statistics saved: {stats_csv_filename}")
+            logger.info("Community statistics saved: %s",
+                        stats_csv_filename)
 
             # Generate visualizations with gap handling
             if visualisation:
@@ -232,7 +289,7 @@ def communities_measures(graphs: List,
 
 
 def _plot_community_stats(stats_df: pd.DataFrame, algo_name: str,
-                         graph_labels: List[str], gap_info: Dict,
+                         graph_labels: List[str], gap_info: GapInfo,
                          save_path: str) -> None:
     """
     Helper function to plot community statistics with gap handling.
@@ -288,7 +345,7 @@ def _plot_community_stats(stats_df: pd.DataFrame, algo_name: str,
                 save_path, f"communities_{algo_name}_{prop_col}.pdf")
             fig.savefig(plot_filename, dpi=300, bbox_inches='tight')
             plt.close(fig)
-            print(f"  ✓ Plot saved: {plot_filename}")
+            logger.info("Plot saved: %s", plot_filename)
 
         except Exception as e:
-            print(f"  Warning: Could not plot {prop_label}: {e}")
+            warnings.warn(f"Could not plot {prop_label}: {e}")

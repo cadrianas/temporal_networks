@@ -5,17 +5,24 @@ This module provides functions for creating interactive animated visualizations
 of how community structures change over time in networks.
 """
 
+import logging
+import warnings
+
+import igraph as ig
 import plotly.graph_objs as go
 from plotly.offline import plot
 import random
-from typing import List, Any
+from typing import Any, List, Optional
 from ._gap_utilities import validate_and_setup_graphs
 from ._community_utils import _detect_communities
 
+logger = logging.getLogger(__name__)
 
-def plot_community_evolution(graphs: List,
+
+def plot_community_evolution(graphs: List[ig.Graph],
                             community_algorithm: str,
-                            output_file: str = "community_evolution.html") -> None:
+                            output_file: str = "community_evolution.html",
+                            seed: Optional[int] = None) -> None:
     """
     Create interactive animation of community evolution across temporal network.
 
@@ -40,6 +47,11 @@ def plot_community_evolution(graphs: List,
         - "louvain"
     output_file : str, optional
         Filename for saving the HTML animation (default: "community_evolution.html")
+    seed : int, optional
+        Seed for the random node positions used when graphs carry no
+        "x"/"y" vertex attributes. Positions come from a local RNG, so the
+        global ``random`` module state is never touched. If None (default),
+        positions differ between runs.
 
     Returns
     -------
@@ -76,7 +88,8 @@ def plot_community_evolution(graphs: List,
 
     communities_list, algo_name = _detect_communities(graphs, community_algorithm)
 
-    frames = _create_animation_frames(graphs, communities_list)
+    rng = random.Random(seed)
+    frames = _create_animation_frames(graphs, communities_list, rng)
 
     if not frames:
         raise RuntimeError("No frames were successfully created. "
@@ -93,11 +106,12 @@ def plot_community_evolution(graphs: List,
     )
 
     plot(fig, filename=output_file, auto_open=False)
-    print(f"✓ Community evolution animation saved to {output_file}")
+    logger.info("Community evolution animation saved to %s", output_file)
 
 
-def _create_animation_frames(graphs: List,
-                             communities_list: List[Any]) -> List[go.Frame]:
+def _create_animation_frames(graphs: List[ig.Graph],
+                             communities_list: List[Any],
+                             rng: random.Random) -> List[go.Frame]:
     """
     Create Plotly animation frames from graphs and their partitions.
 
@@ -107,6 +121,8 @@ def _create_animation_frames(graphs: List,
         Graphs to render, one per animation frame.
     communities_list : list
         Community partition for each graph (None entries are skipped).
+    rng : random.Random
+        Local RNG for fallback node positions (graphs without "x"/"y").
 
     Returns
     -------
@@ -117,17 +133,18 @@ def _create_animation_frames(graphs: List,
 
     for frame_idx, (graph, partition) in enumerate(zip(graphs, communities_list)):
         if partition is None:
-            print(f"  Skipping frame {frame_idx} due to detection failure")
+            logger.info("Skipping frame %d due to detection failure",
+                        frame_idx)
             continue
 
         try:
             if "x" in graph.vs.attributes() and "y" in graph.vs.attributes():
                 pos = [(node["x"], node["y"]) for node in graph.vs]
             else:
-                pos = [(random.uniform(0, 1), random.uniform(0, 1))
+                pos = [(rng.uniform(0, 1), rng.uniform(0, 1))
                        for _ in graph.vs]
-                print(f"  Note: Frame {frame_idx} using random "
-                      f"positions (no x/y attributes)")
+                logger.info("Frame %d using random positions "
+                            "(no x/y vertex attributes)", frame_idx)
 
             try:
                 community_membership = partition.membership
@@ -184,8 +201,8 @@ def _create_animation_frames(graphs: List,
             frames.append(frame)
 
         except Exception as e:
-            print(f"  Warning: Could not create visualization for "
-                  f"frame {frame_idx}: {e}")
+            warnings.warn(f"Could not create visualization for "
+                          f"frame {frame_idx}: {e}")
             continue
 
     return frames

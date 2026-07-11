@@ -132,8 +132,9 @@ def snapshots_from_events(
     ------
     ValueError
         If a required column is missing, ``df`` is empty, the time column
-        cannot be parsed, no non-empty bins are produced, or ``label_format``
-        produces duplicate or unparseable labels.
+        cannot be parsed or contains missing timestamps (``NaT``), no
+        non-empty bins are produced, or ``label_format`` produces duplicate
+        or unparseable labels.
 
     Examples
     --------
@@ -162,9 +163,22 @@ def snapshots_from_events(
 
     try:
         times = pd.to_datetime(df[time_col])
-    except Exception as e:
+    except (ValueError, TypeError, OverflowError) as e:
         raise ValueError(
             f"Could not parse '{time_col}' as datetimes: {e}") from e
+
+    # pd.to_datetime raises on malformed strings but silently converts
+    # None/NaN to NaT, and groupby would then silently drop those events —
+    # while their endpoints would still enter the union vertex set. Refuse
+    # instead: missing timestamps are a data problem the caller must see.
+    n_missing = int(times.isna().sum())
+    if n_missing:
+        bad_rows = df.index[times.isna()][:3].tolist()
+        raise ValueError(
+            f"{n_missing} of {len(df)} rows in '{time_col}' have missing "
+            f"timestamps (NaT), e.g. at index {bad_rows}. Drop or fill "
+            f"them before calling snapshots_from_events, e.g. "
+            f"df.dropna(subset=[{time_col!r}]).")
 
     # Union vertex set across the whole stream, in deterministic order, so
     # every snapshot shares the same node identities.

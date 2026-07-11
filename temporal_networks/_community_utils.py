@@ -7,8 +7,15 @@ implementation rather than duplicating the algorithm-name mapping and the
 directed/undirected and dendrogram-cut handling.
 """
 
+import logging
+import warnings
+
 import igraph as ig
 from typing import List, Tuple, Any
+
+from ._gap_utilities import _COMPUTE_ERRORS
+
+logger = logging.getLogger(__name__)
 
 # Map public algorithm names to igraph functions. Names align with
 # ``communities_measures`` and ``plot_community_evolution`` ("louvain"), with
@@ -35,7 +42,7 @@ _UNDIRECTED_ONLY = {
 _DENDROGRAM = {"walktrap", "fast_greedy", "edge_betweenness"}
 
 
-def _detect_communities(graphs: List,
+def _detect_communities(graphs: List[ig.Graph],
                         community_algorithm: str) -> Tuple[List[Any], str]:
     """
     Detect communities for each graph using the chosen algorithm.
@@ -63,7 +70,7 @@ def _detect_communities(graphs: List,
     algo_func = _ALGORITHM_MAP[algo_key]
     algo_name = community_algorithm.capitalize()
 
-    print(f"Detecting communities with {algo_name} algorithm...")
+    logger.info("Detecting communities with %s algorithm...", algo_name)
 
     communities_list: List[Any] = []
     for graph_idx, graph in enumerate(graphs):
@@ -80,16 +87,18 @@ def _detect_communities(graphs: List,
                     partition = algo_func(g).as_clustering()
                 else:
                     partition = algo_func(g)
-            except Exception as e:
-                print(f"  Warning: Community detection failed for "
-                      f"graph {graph_idx}: {e}")
+            except _COMPUTE_ERRORS as e:
+                warnings.warn(f"Community detection failed for "
+                              f"graph {graph_idx}: {e}; skipping "
+                              f"this snapshot")
                 communities_list.append(None)
                 continue
 
             communities_list.append(partition)
 
-        except Exception as e:
-            print(f"  Warning: Error processing graph {graph_idx}: {e}")
+        except _COMPUTE_ERRORS as e:
+            warnings.warn(f"Error processing graph {graph_idx}: {e}; "
+                          f"skipping this snapshot")
             communities_list.append(None)
 
     return communities_list, algo_name

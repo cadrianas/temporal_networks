@@ -11,12 +11,18 @@ KEY FEATURES:
 - Tracks individual node evolution
 """
 
+import logging
+import os
+import warnings
+
+import igraph as ig
 import pandas as pd
 import matplotlib.pyplot as plt
 import numpy as np
-import os
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 from ._gap_utilities import (
+    GapInfo,
+    _COMPUTE_ERRORS,
     detect_temporal_gaps,
     print_gap_report,
     plot_with_gap_handling,
@@ -24,17 +30,20 @@ from ._gap_utilities import (
 )
 
 
+logger = logging.getLogger(__name__)
+
+
 # ============================================================================
 # MAIN FUNCTION
 # ============================================================================
 
-def vertex_properties(graphs: List,
+def vertex_properties(graphs: List[ig.Graph],
                      node_name: str,
                      graph_labels: Optional[List[str]] = None,
                      filename: Optional[str] = None,
                      save_path: Optional[str] = None,
                      visualisation: bool = True,
-                     report_gaps: bool = True) -> pd.DataFrame:
+                     report_gaps: bool = False) -> pd.DataFrame:
     """
     Compute and visualize properties of a specific node across multiple graphs.
 
@@ -63,7 +72,8 @@ def vertex_properties(graphs: List,
     visualisation : bool, optional
         If True (default), generates plots for each property over time
     report_gaps : bool, optional
-        If True (default), analyzes and reports temporal gaps to the console
+        If True, print a temporal gap report to the console
+        (default: False)
 
     Returns
     -------
@@ -120,9 +130,9 @@ def vertex_properties(graphs: List,
         save_path_file = os.path.join(save_path, filename) if save_path else filename
         try:
             properties_df.to_csv(save_path_file, index=False)
-            print(f"✓ Vertex properties saved to {save_path_file}")
-        except Exception as e:
-            print(f"Error saving vertex properties: {e}")
+            logger.info("Vertex properties saved to %s", save_path_file)
+        except OSError as e:
+            warnings.warn(f"Error saving vertex properties: {e}")
 
     # Generate visualizations with gap handling
     if visualisation and save_path is not None:
@@ -134,7 +144,7 @@ def vertex_properties(graphs: List,
 
     return properties_df
 
-def _compute_vertex_properties(graphs: List, node_name: str,
+def _compute_vertex_properties(graphs: List[ig.Graph], node_name: str,
                                graph_labels: List[str]) -> pd.DataFrame:
     """
     Compute vertex properties for a single node across graphs.
@@ -153,7 +163,7 @@ def _compute_vertex_properties(graphs: List, node_name: str,
     pandas.DataFrame
         One row per graph with a column for each computed metric.
     """
-    properties: dict = {
+    properties: Dict[str, List[Any]] = {
         "Graph": [],
         "Degree_Centrality": [],
         "Closeness_Centrality": [],
@@ -180,8 +190,14 @@ def _compute_vertex_properties(graphs: List, node_name: str,
         elif "label" in graph.vs.attributes() and node_name in graph.vs["label"]:
             node_index = graph.vs.find(label=node_name).index
         else:
-            print(f"Warning: Node '{node_name}' not found in graph "
-                  f"{graph_name}. Skipping.")
+            # Emit a NaN row so the output keeps one row per graph even
+            # when the node is absent from a snapshot.
+            warnings.warn(f"Node '{node_name}' not found in graph "
+                          f"{graph_name}; reporting NaN for this snapshot")
+            properties["Graph"].append(graph_name)
+            for key in properties:
+                if key != "Graph":
+                    properties[key].append(np.nan)
             continue
 
         # Record graph name
@@ -190,79 +206,79 @@ def _compute_vertex_properties(graphs: List, node_name: str,
         # Compute and store centrality measures
         try:
             properties["Degree_Centrality"].append(graph.degree()[node_index])
-        except Exception:
-            properties["Degree_Centrality"].append(None)
+        except _COMPUTE_ERRORS:
+            properties["Degree_Centrality"].append(np.nan)
 
         try:
             properties["Closeness_Centrality"].append(graph.closeness()[node_index])
-        except Exception:
-            properties["Closeness_Centrality"].append(None)
+        except _COMPUTE_ERRORS:
+            properties["Closeness_Centrality"].append(np.nan)
 
         try:
             properties["Betweenness_Centrality"].append(graph.betweenness()[node_index])
-        except Exception:
-            properties["Betweenness_Centrality"].append(None)
+        except _COMPUTE_ERRORS:
+            properties["Betweenness_Centrality"].append(np.nan)
 
         try:
             properties["Eigenvector_Centrality"].append(
                 graph.eigenvector_centrality()[node_index])
-        except Exception:
-            properties["Eigenvector_Centrality"].append(None)
+        except _COMPUTE_ERRORS:
+            properties["Eigenvector_Centrality"].append(np.nan)
 
         try:
             properties["PageRank"].append(graph.pagerank()[node_index])
-        except Exception:
-            properties["PageRank"].append(None)
+        except _COMPUTE_ERRORS:
+            properties["PageRank"].append(np.nan)
 
         try:
             properties["Harmonic_Centrality"].append(
                 graph.harmonic_centrality()[node_index])
-        except Exception:
-            properties["Harmonic_Centrality"].append(None)
+        except _COMPUTE_ERRORS:
+            properties["Harmonic_Centrality"].append(np.nan)
 
         try:
             properties["Eccentricity"].append(graph.eccentricity()[node_index])
-        except Exception:
-            properties["Eccentricity"].append(None)
+        except _COMPUTE_ERRORS:
+            properties["Eccentricity"].append(np.nan)
 
         try:
             properties["Clustering_Coefficient"].append(
                 graph.transitivity_local_undirected()[node_index])
-        except Exception:
-            properties["Clustering_Coefficient"].append(None)
+        except _COMPUTE_ERRORS:
+            properties["Clustering_Coefficient"].append(np.nan)
 
         try:
             properties["Constraint"].append(graph.constraint()[node_index])
-        except Exception:
-            properties["Constraint"].append(None)
+        except _COMPUTE_ERRORS:
+            properties["Constraint"].append(np.nan)
 
         try:
             properties["Coreness"].append(graph.coreness()[node_index])
-        except Exception:
-            properties["Coreness"].append(None)
+        except _COMPUTE_ERRORS:
+            properties["Coreness"].append(np.nan)
 
         # HITS hub/authority scores are only meaningful for directed graphs
         if graph.is_directed():
             try:
                 properties["Authority_Score"].append(
                     graph.authority_score()[node_index])
-            except Exception:
-                properties["Authority_Score"].append(None)
+            except _COMPUTE_ERRORS:
+                properties["Authority_Score"].append(np.nan)
 
             try:
                 properties["Hub_Score"].append(graph.hub_score()[node_index])
-            except Exception:
-                properties["Hub_Score"].append(None)
+            except _COMPUTE_ERRORS:
+                properties["Hub_Score"].append(np.nan)
         else:
-            properties["Authority_Score"].append(None)
-            properties["Hub_Score"].append(None)
+            properties["Authority_Score"].append(np.nan)
+            properties["Hub_Score"].append(np.nan)
 
     # Convert to DataFrame
     return pd.DataFrame(properties)
 
 
 def _plot_vertex_properties(properties_df: pd.DataFrame, node_name: str,
-                            graph_labels: List[str], gap_info: dict,
+                            graph_labels: List[str], gap_info: GapInfo,
                             save_path: str) -> None:
     """
     Plot vertex properties over time with gap handling.
@@ -331,10 +347,10 @@ def _plot_vertex_properties(properties_df: pd.DataFrame, node_name: str,
             plot_filename = os.path.join(save_path, f"{node_name}_{prop}.pdf")
             fig.savefig(plot_filename, dpi=300, bbox_inches='tight')
             plt.close(fig)
-            print(f"✓ Plot saved: {plot_filename}")
+            logger.info("Plot saved: %s", plot_filename)
 
         except Exception as e:
-            print(f"Warning: Could not plot {prop}: {e}")
+            warnings.warn(f"Could not plot {prop}: {e}")
 
     # Create combined plot with all properties
     try:
@@ -375,7 +391,7 @@ def _plot_vertex_properties(properties_df: pd.DataFrame, node_name: str,
         combined_filename = os.path.join(save_path, f"{node_name}_all_properties.pdf")
         fig.savefig(combined_filename, dpi=300, bbox_inches='tight')
         plt.close(fig)
-        print(f"✓ Combined plot saved: {combined_filename}")
+        logger.info("Combined plot saved: %s", combined_filename)
 
     except Exception as e:
-        print(f"Warning: Could not create combined plot: {e}")
+        warnings.warn(f"Could not create combined plot: {e}")

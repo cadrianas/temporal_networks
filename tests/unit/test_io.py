@@ -167,6 +167,31 @@ class TestErrors(unittest.TestCase):
         with self.assertRaises(ValueError):
             snapshots_from_events(df, "t", "u", "v", freq="M")
 
+    def test_missing_timestamps_raise(self):
+        """None/NaN timestamps must raise, not silently drop events.
+
+        Regression test: pd.to_datetime converts nulls to NaT without
+        error, and the groupby then silently excluded those events while
+        their endpoints still entered the union vertex set.
+        """
+        df = pd.DataFrame({
+            "t": ["2024-01-05", None, "2024-02-02"],
+            "u": ["a", "b", "a"],
+            "v": ["b", "c", "c"],
+        })
+        with self.assertRaises(ValueError) as ctx:
+            snapshots_from_events(df, "t", "u", "v", freq="M")
+        self.assertIn("missing", str(ctx.exception))
+
+    def test_nan_timestamp_raises(self):
+        df = pd.DataFrame({
+            "t": [pd.Timestamp("2024-01-05"), pd.NaT],
+            "u": ["a", "b"],
+            "v": ["b", "c"],
+        })
+        with self.assertRaises(ValueError):
+            snapshots_from_events(df, "t", "u", "v", freq="M")
+
     def test_non_numeric_weight_column(self):
         df = pd.DataFrame({
             "t": ["2024-01-01"],

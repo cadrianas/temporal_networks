@@ -17,10 +17,15 @@ KEY FEATURES:
   data closure is not flagged as an anomaly.
 """
 
+import math
+import warnings
+
+import igraph as ig
 import numpy as np
 import pandas as pd
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 from ._gap_utilities import (
+    GapInfo,
     detect_temporal_gaps,
     validate_and_setup_graphs,
 )
@@ -41,8 +46,8 @@ _MAD_SCALE = 1.4826
 # INTERNAL HELPERS
 # ============================================================================
 
-def _zscore_flags(series: np.ndarray, segments: List,
-                  threshold: float) -> List[Dict]:
+def _zscore_flags(series: np.ndarray, segments: List[Tuple[int, int]],
+                  threshold: float) -> List[Dict[str, float]]:
     """
     Flag indices whose per-segment z-score exceeds ``threshold``.
 
@@ -79,8 +84,8 @@ def _zscore_flags(series: np.ndarray, segments: List,
     return flags
 
 
-def _diff_mad_flags(series: np.ndarray, segments: List,
-                    threshold: float) -> List[Dict]:
+def _diff_mad_flags(series: np.ndarray, segments: List[Tuple[int, int]],
+                    threshold: float) -> List[Dict[str, float]]:
     """
     Flag indices where the first-difference is a MAD outlier.
 
@@ -132,8 +137,8 @@ def _diff_mad_flags(series: np.ndarray, segments: List,
     return flags
 
 
-def _pelt_flags(series: np.ndarray, segments: List,
-                threshold: float) -> List[Dict]:
+def _pelt_flags(series: np.ndarray, segments: List[Tuple[int, int]],
+                threshold: float) -> List[Dict[str, float]]:
     """
     Detect change points with PELT (requires the ``ruptures`` package).
 
@@ -179,8 +184,104 @@ def _pelt_flags(series: np.ndarray, segments: List,
                     flags.append({"index": abs_idx,
                                   "score": float("nan")})
         except Exception as e:
-            print(f"Warning: PELT failed for segment [{start}, {end}): {e}")
+            warnings.warn(
+                f"PELT failed for segment [{start}, {end}): {e}")
     return flags
+
+
+def _warn_unattainable_zscore(segments: List[Tuple[int, int]],
+                              threshold: float) -> None:
+    """
+    Warn when the z-score threshold is mathematically unattainable.
+
+    With the population standard deviation, the largest |z| any single
+    point in a segment of ``n`` values can attain is ``sqrt(n - 1)``
+    (reached by one outlier among otherwise identical values). If that
+    bound does not exceed ``threshold``, no point in the segment can ever
+    be flagged — e.g. the default ``threshold=3.0`` needs segments of at
+    least 11 points.
+
+    Parameters
+    ----------
+    segments : list of tuple
+        ``(start, end)`` row-index pairs being scored.
+    threshold : float
+        The z-score threshold in use.
+
+    Returns
+    -------
+    None
+    """
+    too_short = [(start, end) for start, end in segments
+                 if end - start >= 2
+                 and math.sqrt(end - start - 1) <= threshold]
+    if not too_short:
+        return
+    n_min = 2
+    while math.sqrt(n_min - 1) <= threshold:
+        n_min += 1
+    warnings.warn(
+        f"zscore with threshold={threshold} can never flag anything in "
+        f"segments shorter than {n_min} points (the largest attainable "
+        f"|z| in an n-point segment is sqrt(n - 1)); segment(s) "
+        f"{too_short} are too short. Lower the threshold or use "
+        f"method='diff'.")
+
+
+def _segments_for_frame(series_df: pd.DataFrame, label_col: str,
+                        gap_info: Optional[GapInfo]
+                        ) -> List[Tuple[int, int]]:
+    """
+    Map detected temporal gaps to row positions of ``series_df``.
+
+    ``gap_info["segments"]`` indexes the original *label sequence*, which
+    does not necessarily align with the rows of ``series_df`` — e.g.
+    ``snapshot_similarity`` output has one row per consecutive pair, so it
+    is one row shorter and starts at the second label. Segments are
+    therefore re-derived from ``label_col``: every row whose label is the
+    first label after a detected gap starts a new segment.
+
+    Parameters
+    ----------
+    series_df : pandas.DataFrame
+        The frame being analysed.
+    label_col : str
+        Column holding the snapshot label for each row.
+    gap_info : dict or None
+        Output of :func:`~temporal_networks.detect_temporal_gaps`.
+
+    Returns
+    -------
+    list of tuple
+        ``(start, end)`` row-index pairs covering ``series_df``. A single
+        ``(0, len(series_df))`` segment when there is nothing to split on.
+        When the gaps carry no matchable labels (or ``label_col`` is
+        absent), falls back to ``gap_info["segments"]`` clipped to the
+        frame length.
+    """
+    n = len(series_df)
+    if gap_info is None:
+        return [(0, n)]
+
+    gaps = gap_info.get("gaps") or []
+    if gaps and label_col in series_df.columns:
+        end_labels = {g["end_label"] for g in gaps}
+        labels = list(series_df[label_col])
+        boundaries = [i for i, lab in enumerate(labels)
+                      if lab in end_labels and i > 0]
+        segments = []
+        start = 0
+        for b in boundaries:
+            segments.append((start, b))
+            start = b
+        segments.append((start, n))
+        return segments
+
+    # No gap labels to match on: use the provided index segments, clipped
+    # to the frame length so a shorter frame cannot over-slice.
+    segments = [(s, min(e, n))
+                for s, e in gap_info.get("segments", [(0, n)]) if s < n]
+    return segments or [(0, n)]
 
 
 # ============================================================================
@@ -193,7 +294,7 @@ def detect_change_points(
     method: str = "zscore",
     threshold: float = 3.0,
     label_col: str = "Graph",
-    gap_info: Optional[Dict] = None,
+    gap_info: Optional[GapInfo] = None,
 ) -> pd.DataFrame:
     """
     Detect change points in one or more metric time series.
@@ -231,12 +332,24 @@ def detect_change_points(
         3-sigma rule (``threshold=3.0``) is a common starting point. For
         ``"pelt"``, this is the penalty value forwarded to
         ``ruptures.Pelt.predict``.
+
+        Note that the z-score uses the population standard deviation, so
+        the largest |z| any single point in an ``n``-point segment can
+        attain is ``sqrt(n - 1)``: ``threshold=3.0`` can only ever flag
+        points in segments of 11 or more snapshots (``threshold=2.0``
+        needs 6). A warning is emitted when a segment is too short for
+        the chosen threshold; lower the threshold or use ``"diff"`` for
+        short segments.
     label_col : str, optional
         Column in ``series_df`` that contains the snapshot label (default
         ``"Graph"``). Used to populate the ``label`` column in the output.
     gap_info : dict, optional
         Gap information from :func:`~temporal_networks.detect_temporal_gaps`.
-        When provided, statistics are reset at each gap boundary.
+        When provided, statistics are reset at each gap boundary. Gap
+        boundaries are matched to rows through ``label_col``, so frames
+        that do not have one row per label (e.g.
+        :func:`~temporal_networks.snapshot_similarity` output, which has
+        one row per consecutive pair) are still split at the correct rows.
 
     Returns
     -------
@@ -252,6 +365,12 @@ def detect_change_points(
 
         Returns an empty DataFrame with the correct columns when no change
         points are found.
+
+    Warns
+    -----
+    UserWarning
+        With ``method="zscore"``, when a segment is too short for any
+        point to reach ``threshold`` (see the ``threshold`` parameter).
 
     Examples
     --------
@@ -274,10 +393,14 @@ def detect_change_points(
         numeric = series_df.select_dtypes(include=np.number).columns.tolist()
         columns = [c for c in numeric if c != label_col]
 
-    if gap_info is not None:
-        segments = gap_info.get("segments", [(0, len(series_df))])
-    else:
-        segments = [(0, len(series_df))]
+    # Segments are aligned to the ROWS of series_df via label_col, so
+    # frames that do not have one row per label (e.g. snapshot_similarity
+    # output, which starts at the second label) are still split at the
+    # right rows.
+    segments = _segments_for_frame(series_df, label_col, gap_info)
+
+    if method == "zscore":
+        _warn_unattainable_zscore(segments, threshold)
 
     rows = []
     for col in columns:
@@ -294,8 +417,9 @@ def detect_change_points(
                 flags = _pelt_flags(series, segments, threshold)
         except ImportError:
             raise
-        except Exception as e:
-            print(f"Warning: Error detecting change points in '{col}': {e}")
+        except (ValueError, TypeError) as e:
+            warnings.warn(
+                f"Error detecting change points in '{col}': {e}")
             continue
 
         for flag in flags:
@@ -318,7 +442,7 @@ def detect_change_points(
 
 
 def flag_anomalous_snapshots(
-    graphs: List,
+    graphs: List[ig.Graph],
     graph_labels: Optional[List[str]] = None,
     method: str = "zscore",
     threshold: float = 3.0,
@@ -356,7 +480,7 @@ def flag_anomalous_snapshots(
     >>> g_normal = ig.Graph.Full(n=5)
     >>> g_sparse = ig.Graph(n=5, edges=[(0, 1)])
     >>> graphs = [g_normal] * 8 + [g_sparse] + [g_normal] * 8
-    >>> labels = [f"2024-{i+1:02d}" for i in range(17)]
+    >>> labels = [f"{2024 + i // 12}-{i % 12 + 1:02d}" for i in range(17)]
     >>> flags = flag_anomalous_snapshots(graphs, graph_labels=labels,
     ...                                   threshold=2.0)
     >>> len(flags) > 0

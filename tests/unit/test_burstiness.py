@@ -26,6 +26,15 @@ def _off():
 
 
 class TestInterEventTimes(unittest.TestCase):
+    def test_rows_sorted_chronologically_not_lexicographically(self):
+        """Default labels ("Graph 10" < "Graph 2" as strings) must come
+        out in snapshot order."""
+        # Edge active at snapshots 0, 1, 9, 10 -> three intervals.
+        graphs = [_on(), _on()] + [_off()] * 7 + [_on(), _on()]
+        df = inter_event_times(graphs)  # default "Graph N" labels
+        self.assertEqual(list(df["start_label"]),
+                         ["Graph 1", "Graph 2", "Graph 10"])
+
     def test_intervals_in_inferred_unit(self):
         graphs = [_on(), _off(), _on()]  # active at 0 and 2
         labels = ["2024-01", "2024-02", "2024-03"]
@@ -151,17 +160,25 @@ class TestErrorHandling(unittest.TestCase):
     def test_compute_exception_warns_and_skips(self):
         graphs = [_on(), _on()]
         with patch("temporal_networks.burstiness._edge_identity_set",
-                   side_effect=Exception("boom")):
-            f = io.StringIO()
-            with contextlib.redirect_stdout(f):
+                   side_effect=ig.InternalError("boom")):
+            with self.assertWarns(UserWarning):
                 df = burstiness_coefficient(graphs, graph_labels=["a", "b"],
                                             report_gaps=False)
-            out = f.getvalue()
-        self.assertIn("Warning", out)
         self.assertTrue(df.empty)
         self.assertEqual(list(df.columns),
                          ["entity", "n_events", "mean_interval",
                           "std_interval", "burstiness"])
+
+
+class TestExceptionPropagation(unittest.TestCase):
+    def test_programming_errors_propagate(self):
+        """A TypeError from a helper is a bug and must not become a warning."""
+        graphs = [_on(), _on()]
+        with patch("temporal_networks.burstiness._edge_identity_set",
+                   side_effect=TypeError("a bug, not bad data")):
+            with self.assertRaises(TypeError):
+                burstiness_coefficient(graphs, graph_labels=["a", "b"],
+                                       report_gaps=False)
 
 
 class TestPlotting(unittest.TestCase):

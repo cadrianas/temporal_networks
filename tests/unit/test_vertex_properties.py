@@ -54,13 +54,19 @@ class TestVertexProperties(unittest.TestCase):
         node_idx = self.g2.vs.find(name="Node_5").index
         self.g2.vs[node_idx]["name"] = "Node_5_changed"
 
-        df = vertex_properties(self.graphs, node_name="Node_5", graph_labels=self.labels,
-                               save_path=self.test_save_path, visualisation=False, report_gaps=False)
+        with self.assertWarns(UserWarning):
+            df = vertex_properties(self.graphs, node_name="Node_5",
+                                   graph_labels=self.labels,
+                                   save_path=self.test_save_path,
+                                   visualisation=False, report_gaps=False)
 
         self.assertIsInstance(df, pd.DataFrame)
-        # Should only have 2 rows because Node_5 is missing from g2
-        self.assertEqual(len(df), 2)
-        self.assertEqual(list(df["Graph"]), ["2019-01", "2019-03"])
+        # One row per graph: the snapshot missing Node_5 warns and is
+        # reported as a NaN row, keeping output aligned with the labels.
+        self.assertEqual(len(df), 3)
+        self.assertEqual(list(df["Graph"]), self.labels)
+        missing = df[df["Graph"] == "2019-02"].iloc[0]
+        self.assertTrue(pd.isna(missing["Degree_Centrality"]))
 
     def test_vertex_properties_visualisation_false(self):
         """Test vertex_properties executes correctly with visualisation=False"""
@@ -75,6 +81,16 @@ class TestVertexProperties(unittest.TestCase):
         files = os.listdir(self.test_save_path)
         self.assertEqual(len(files), 0)
         self.assertEqual(len(df), 3)
+
+    def test_missing_metrics_are_numeric_nan(self):
+        """All-missing metrics (HITS on undirected graphs) must be NaN in a
+        numeric column, not None in an object column."""
+        df = vertex_properties([self.g1, self.g2], node_name="Node_5",
+                               graph_labels=["2024-01", "2024-02"],
+                               visualisation=False, report_gaps=False)
+        for col in ("Authority_Score", "Hub_Score"):
+            self.assertTrue(df[col].isna().all())
+            self.assertTrue(pd.api.types.is_float_dtype(df[col]), col)
 
     def test_vertex_properties_label_attribute(self):
         """Test vertex_properties matching nodes using 'label' instead of 'name'"""

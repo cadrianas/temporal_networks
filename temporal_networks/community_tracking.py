@@ -18,17 +18,25 @@ KEY FEATURES:
   unless it re-matches later.
 """
 
+import logging
 import os
+import warnings
+
+import igraph as ig
 import pandas as pd
 import matplotlib.pyplot as plt
 from typing import Dict, List, Optional, Set
 from ._gap_utilities import (
+    GapInfo,
+    NodeKey,
     detect_temporal_gaps,
     print_gap_report,
     validate_and_setup_graphs,
     _vertex_keys,
 )
 from ._community_utils import _detect_communities
+
+logger = logging.getLogger(__name__)
 
 __all__ = [
     "track_communities",
@@ -42,7 +50,7 @@ _COLUMNS = ["Graph", "community_id", "lineage_id", "size", "event", "members"]
 # INTERNAL HELPERS
 # ============================================================================
 
-def _communities_as_keysets(partition, graph) -> List[Set]:
+def _communities_as_keysets(partition, graph: ig.Graph) -> List[Set[NodeKey]]:
     """
     Return each community as a set of vertex identity keys.
 
@@ -62,13 +70,13 @@ def _communities_as_keysets(partition, graph) -> List[Set]:
     if partition is None:
         return []
     keys = _vertex_keys(graph)
-    groups: Dict = {}
+    groups: Dict[int, Set[NodeKey]] = {}
     for vidx, cid in enumerate(partition.membership):
         groups.setdefault(cid, set()).add(keys[vidx])
     return [groups[cid] for cid in sorted(groups)]
 
 
-def _jaccard(a: Set, b: Set) -> float:
+def _jaccard(a: Set[NodeKey], b: Set[NodeKey]) -> float:
     """Jaccard overlap of two sets (0.0 when both are empty)."""
     if not a and not b:
         return 0.0
@@ -86,12 +94,12 @@ def _dominant(mapping: Dict[int, float]) -> int:
 # ============================================================================
 
 def track_communities(
-    graphs: List,
+    graphs: List[ig.Graph],
     graph_labels: Optional[List[str]] = None,
     algorithm: str = "multilevel",
     match_threshold: float = 0.3,
     bridge_gaps: bool = False,
-    report_gaps: bool = True,
+    report_gaps: bool = False,
 ) -> pd.DataFrame:
     """
     Match communities across snapshots and label lifecycle events.
@@ -121,7 +129,8 @@ def track_communities(
     bridge_gaps : bool, optional
         If False (default), lineages are not linked across a detected gap.
     report_gaps : bool, optional
-        If True (default), prints a temporal gap report to the console.
+        If True, print a temporal gap report to the console
+        (default: False).
 
     Returns
     -------
@@ -156,7 +165,6 @@ def track_communities(
     >>> g = ig.Graph(n=6, edges=edges)
     >>> df = track_communities([g, g.copy()], graph_labels=["t0", "t1"],
     ...                         algorithm="louvain", report_gaps=False)
-    Detecting communities with Louvain algorithm...
     >>> sorted(df["event"].unique())
     ['birth', 'continue']
     """
@@ -170,7 +178,7 @@ def track_communities(
     partitions, _ = _detect_communities(graphs, algorithm)
 
     # Per-snapshot communities as member-key sets.
-    comms: List[List[Set]] = [
+    comms: List[List[Set[NodeKey]]] = [
         _communities_as_keysets(partitions[i], graphs[i])
         for i in range(len(graphs))
     ]
@@ -259,7 +267,7 @@ def track_communities(
 def plot_community_lineage(
     tracking_df: pd.DataFrame,
     graph_labels: List[str],
-    gap_info: Dict,
+    gap_info: GapInfo,
     save_path: Optional[str] = None,
 ) -> None:
     """
@@ -333,7 +341,7 @@ def plot_community_lineage(
         path = os.path.join(save_path, "community_lineage.pdf")
         fig.savefig(path, dpi=300, bbox_inches="tight")
         plt.close(fig)
-        print(f"✓ Plot saved: {path}")
+        logger.info("Plot saved: %s", path)
 
     except Exception as e:
-        print(f"Warning: Could not plot community lineage: {e}")
+        warnings.warn(f"Could not plot community lineage: {e}")
