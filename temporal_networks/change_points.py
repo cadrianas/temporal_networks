@@ -19,10 +19,12 @@ KEY FEATURES:
 
 import warnings
 
+import igraph as ig
 import numpy as np
 import pandas as pd
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 from ._gap_utilities import (
+    GapInfo,
     detect_temporal_gaps,
     validate_and_setup_graphs,
 )
@@ -43,8 +45,8 @@ _MAD_SCALE = 1.4826
 # INTERNAL HELPERS
 # ============================================================================
 
-def _zscore_flags(series: np.ndarray, segments: List,
-                  threshold: float) -> List[Dict]:
+def _zscore_flags(series: np.ndarray, segments: List[Tuple[int, int]],
+                  threshold: float) -> List[Dict[str, float]]:
     """
     Flag indices whose per-segment z-score exceeds ``threshold``.
 
@@ -81,8 +83,8 @@ def _zscore_flags(series: np.ndarray, segments: List,
     return flags
 
 
-def _diff_mad_flags(series: np.ndarray, segments: List,
-                    threshold: float) -> List[Dict]:
+def _diff_mad_flags(series: np.ndarray, segments: List[Tuple[int, int]],
+                    threshold: float) -> List[Dict[str, float]]:
     """
     Flag indices where the first-difference is a MAD outlier.
 
@@ -134,8 +136,8 @@ def _diff_mad_flags(series: np.ndarray, segments: List,
     return flags
 
 
-def _pelt_flags(series: np.ndarray, segments: List,
-                threshold: float) -> List[Dict]:
+def _pelt_flags(series: np.ndarray, segments: List[Tuple[int, int]],
+                threshold: float) -> List[Dict[str, float]]:
     """
     Detect change points with PELT (requires the ``ruptures`` package).
 
@@ -187,7 +189,8 @@ def _pelt_flags(series: np.ndarray, segments: List,
 
 
 def _segments_for_frame(series_df: pd.DataFrame, label_col: str,
-                        gap_info: Optional[Dict]) -> List:
+                        gap_info: Optional[GapInfo]
+                        ) -> List[Tuple[int, int]]:
     """
     Map detected temporal gaps to row positions of ``series_df``.
 
@@ -251,7 +254,7 @@ def detect_change_points(
     method: str = "zscore",
     threshold: float = 3.0,
     label_col: str = "Graph",
-    gap_info: Optional[Dict] = None,
+    gap_info: Optional[GapInfo] = None,
 ) -> pd.DataFrame:
     """
     Detect change points in one or more metric time series.
@@ -382,7 +385,7 @@ def detect_change_points(
 
 
 def flag_anomalous_snapshots(
-    graphs: List,
+    graphs: List[ig.Graph],
     graph_labels: Optional[List[str]] = None,
     method: str = "zscore",
     threshold: float = 3.0,

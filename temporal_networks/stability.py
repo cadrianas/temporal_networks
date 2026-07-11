@@ -16,11 +16,14 @@ import logging
 import math
 import os
 import warnings
+import igraph as ig
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-from typing import List, Optional, Dict, Set
+from typing import Any, Dict, List, Optional, Set
 from ._gap_utilities import (
+    GapInfo,
+    NodeKey,
     detect_temporal_gaps,
     print_gap_report,
     plot_with_gap_handling,
@@ -45,7 +48,7 @@ logger = logging.getLogger(__name__)
 # INTERNAL HELPERS
 # ============================================================================
 
-def _neighbor_sets(graph) -> Dict:
+def _neighbor_sets(graph: ig.Graph) -> Dict[NodeKey, Set[NodeKey]]:
     """
     Return a mapping ``node_key -> set of neighbour keys`` for a graph.
 
@@ -54,7 +57,7 @@ def _neighbor_sets(graph) -> Dict:
     and self-loops are ignored.
     """
     keys = _vertex_keys(graph)
-    nb: Dict = {k: set() for k in keys}
+    nb: Dict[NodeKey, Set[NodeKey]] = {k: set() for k in keys}
     for source, target in graph.get_edgelist():
         u, v = keys[source], keys[target]
         if u == v:
@@ -64,7 +67,8 @@ def _neighbor_sets(graph) -> Dict:
     return nb
 
 
-def _temporal_correlation_pair(nb_prev: Dict, nb_curr: Dict) -> float:
+def _temporal_correlation_pair(nb_prev: Dict[NodeKey, Set[NodeKey]],
+                               nb_curr: Dict[NodeKey, Set[NodeKey]]) -> float:
     """
     Average topological overlap between two consecutive snapshots.
 
@@ -73,7 +77,7 @@ def _temporal_correlation_pair(nb_prev: Dict, nb_curr: Dict) -> float:
     in either snapshot). The result averages this over nodes that are active in
     at least one of the two snapshots, or NaN if neither snapshot has edges.
     """
-    nodes: Set = set()
+    nodes: Set[NodeKey] = set()
     for n, neighbours in nb_prev.items():
         if neighbours:
             nodes.add(n)
@@ -96,7 +100,7 @@ def _temporal_correlation_pair(nb_prev: Dict, nb_curr: Dict) -> float:
 # MAIN FUNCTIONS
 # ============================================================================
 
-def snapshot_similarity(graphs: List,
+def snapshot_similarity(graphs: List[ig.Graph],
                         graph_labels: Optional[List[str]] = None,
                         save_path: Optional[str] = None,
                         report_gaps: bool = False) -> pd.DataFrame:
@@ -164,7 +168,7 @@ def snapshot_similarity(graphs: List,
 
     gap_ends = {g["end_idx"] for g in gap_info.get("gaps", [])}
 
-    def _nan_row(i: int) -> Dict:
+    def _nan_row(i: int) -> Dict[str, Any]:
         return {"Graph": graph_labels[i],
                 **{metric: np.nan for metric in _METRICS}}
 
@@ -217,7 +221,7 @@ def snapshot_similarity(graphs: List,
 
 
 def temporal_correlation_coefficient(
-        graphs: List,
+        graphs: List[ig.Graph],
         graph_labels: Optional[List[str]] = None) -> float:
     """
     Average temporal correlation coefficient over the whole sequence.
@@ -275,7 +279,7 @@ def temporal_correlation_coefficient(
 
 
 def _plot_similarity(df: pd.DataFrame, graph_labels: List[str],
-                     gap_info: Dict, save_path: str) -> None:
+                     gap_info: GapInfo, save_path: str) -> None:
     """
     Plot each similarity metric over time with gap handling.
 

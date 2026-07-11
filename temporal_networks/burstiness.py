@@ -19,11 +19,13 @@ import logging
 import os
 import warnings
 
+import igraph as ig
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 from typing import Dict, List, Optional
 from ._gap_utilities import (
+    GapDict,
     detect_temporal_gaps,
     print_gap_report,
     validate_and_setup_graphs,
@@ -50,7 +52,8 @@ _BURST_COLUMNS = ["entity", "n_events", "mean_interval", "std_interval",
 # INTERNAL HELPERS
 # ============================================================================
 
-def _entity_active_indices(graphs: List, by: str) -> Dict[str, List[int]]:
+def _entity_active_indices(graphs: List[ig.Graph],
+                           by: str) -> Dict[str, List[int]]:
     """
     Map each entity to the ordered snapshot indices where it is active.
 
@@ -103,7 +106,7 @@ def _interval_duration(i_a: int, i_b: int, graph_labels: List[str],
     return float(i_b - i_a)
 
 
-def _spans_gap(i_a: int, i_b: int, gaps: List[Dict]) -> bool:
+def _spans_gap(i_a: int, i_b: int, gaps: List[GapDict]) -> bool:
     """Whether the interval ``[i_a, i_b]`` straddles any detected gap break."""
     for gap in gaps:
         if i_a <= gap["start_idx"] and i_b >= gap["end_idx"]:
@@ -115,7 +118,7 @@ def _spans_gap(i_a: int, i_b: int, gaps: List[Dict]) -> bool:
 # MAIN FUNCTIONS
 # ============================================================================
 
-def inter_event_times(graphs: List,
+def inter_event_times(graphs: List[ig.Graph],
                       graph_labels: Optional[List[str]] = None,
                       by: str = "edge",
                       exclude_gaps: bool = True) -> pd.DataFrame:
@@ -218,7 +221,7 @@ def inter_event_times(graphs: List,
               .reset_index(drop=True))
 
 
-def burstiness_coefficient(graphs: List,
+def burstiness_coefficient(graphs: List[ig.Graph],
                            graph_labels: Optional[List[str]] = None,
                            by: str = "edge",
                            exclude_gaps: bool = True,

@@ -8,6 +8,7 @@ of how community structures change over time in networks.
 import logging
 import warnings
 
+import igraph as ig
 import plotly.graph_objs as go
 from plotly.offline import plot
 import random
@@ -18,7 +19,7 @@ from ._community_utils import _detect_communities
 logger = logging.getLogger(__name__)
 
 
-def plot_community_evolution(graphs: List,
+def plot_community_evolution(graphs: List[ig.Graph],
                             community_algorithm: str,
                             output_file: str = "community_evolution.html",
                             seed: Optional[int] = None) -> None:
@@ -108,7 +109,7 @@ def plot_community_evolution(graphs: List,
     logger.info("Community evolution animation saved to %s", output_file)
 
 
-def _create_animation_frames(graphs: List,
+def _create_animation_frames(graphs: List[ig.Graph],
                              communities_list: List[Any],
                              rng: random.Random) -> List[go.Frame]:
     """

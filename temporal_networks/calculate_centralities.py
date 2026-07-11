@@ -17,10 +17,12 @@ import logging
 import os
 import warnings
 
+import igraph as ig
 import pandas as pd
 import matplotlib.pyplot as plt
-from typing import List, Optional, Dict
+from typing import List, Optional
 from ._gap_utilities import (
+    GapInfo,
     detect_temporal_gaps,
     print_gap_report,
     plot_with_gap_handling,
@@ -35,7 +37,7 @@ logger = logging.getLogger(__name__)
 # MAIN FUNCTION
 # ============================================================================
 
-def calculate_centralities(graphs: List,
+def calculate_centralities(graphs: List[ig.Graph],
                           graph_labels: Optional[List[str]] = None,
                           filename: Optional[str] = None,
                           report_gaps: bool = False,
@@ -251,7 +253,7 @@ def calculate_centralities(graphs: List,
 
 def _visualize_centrality_evolution(centralities_df: pd.DataFrame,
                                    graph_labels: List[str],
-                                   gap_info: Dict,
+                                   gap_info: GapInfo,
                                    save_path: str) -> None:
     """
     Visualize how centrality measures evolve over time.

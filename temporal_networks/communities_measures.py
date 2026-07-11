@@ -16,10 +16,12 @@ import logging
 import os
 import warnings
 
+import igraph as ig
 import pandas as pd
 import matplotlib.pyplot as plt
-from typing import List, Optional, Dict
+from typing import Dict, List, Optional
 from ._gap_utilities import (
+    GapInfo,
     detect_temporal_gaps,
     print_gap_report,
     plot_with_gap_handling,
@@ -50,12 +52,13 @@ _DEFAULT_ALGORITHMS = [name for name in _AVAILABLE_ALGORITHMS
 # MAIN FUNCTION
 # ============================================================================
 
-def communities_measures(graphs: List,
+def communities_measures(graphs: List[ig.Graph],
                         graph_labels: Optional[List[str]] = None,
                         algorithms: Optional[List[str]] = None,
                         save_path: Optional[str] = None,
                         visualisation: bool = True,
-                        report_gaps: bool = False) -> dict:
+                        report_gaps: bool = False
+                        ) -> Dict[str, pd.DataFrame]:
     """
     Detect and analyze community structures using multiple algorithms.
 
@@ -285,7 +288,7 @@ def communities_measures(graphs: List,
 
 
 def _plot_community_stats(stats_df: pd.DataFrame, algo_name: str,
-                         graph_labels: List[str], gap_info: Dict,
+                         graph_labels: List[str], gap_info: GapInfo,
                          save_path: str) -> None:
     """
     Helper function to plot community statistics with gap handling.

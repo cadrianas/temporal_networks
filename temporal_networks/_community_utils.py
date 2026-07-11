@@ -40,7 +40,7 @@ _UNDIRECTED_ONLY = {
 _DENDROGRAM = {"walktrap", "fast_greedy", "edge_betweenness"}
 
 
-def _detect_communities(graphs: List,
+def _detect_communities(graphs: List[ig.Graph],
                         community_algorithm: str) -> Tuple[List[Any], str]:
     """
     Detect communities for each graph using the chosen algorithm.

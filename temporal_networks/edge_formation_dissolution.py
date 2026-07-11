@@ -15,11 +15,14 @@ import logging
 import os
 import warnings
 
+import igraph as ig
 import pandas as pd
 import matplotlib.pyplot as plt
 import numpy as np
-from typing import List, Optional, Dict
+from typing import Any, Dict, List, Optional, Set, Tuple
 from ._gap_utilities import (
+    GapInfo,
+    NodeKey,
     detect_temporal_gaps,
     print_gap_report,
     plot_with_gap_handling,
@@ -42,7 +45,7 @@ logger = logging.getLogger(__name__)
 # MAIN FUNCTIONS
 # ============================================================================
 
-def _edge_identity_set(graph) -> set:
+def _edge_identity_set(graph: ig.Graph) -> Set[Tuple[NodeKey, NodeKey]]:
     """
     Return a graph's edges as a set of identity keys.
 
@@ -65,7 +68,7 @@ def _edge_identity_set(graph) -> set:
     """
     keys = _vertex_keys(graph)
     directed = graph.is_directed()
-    edge_set = set()
+    edge_set: Set[Tuple[NodeKey, NodeKey]] = set()
     for source, target in graph.get_edgelist():
         u, v = keys[source], keys[target]
         if not directed:
@@ -74,7 +77,7 @@ def _edge_identity_set(graph) -> set:
     return edge_set
 
 
-def compute_edge_dynamics(graphs: List,
+def compute_edge_dynamics(graphs: List[ig.Graph],
                          graph_labels: Optional[List[str]] = None) -> pd.DataFrame:
     """
     Compute edge formation and dissolution between consecutive graphs.
@@ -137,7 +140,7 @@ def compute_edge_dynamics(graphs: List,
     gap_info = detect_temporal_gaps(graph_labels)
     gap_ends = {g["end_idx"] for g in gap_info.get("gaps", [])}
 
-    def _nan_row(i: int) -> Dict:
+    def _nan_row(i: int) -> Dict[str, Any]:
         return {"Graph": graph_labels[i],
                 "Edges_Formed": np.nan,
                 "Edges_Dissolved": np.nan,
@@ -202,7 +205,7 @@ def compute_edge_dynamics(graphs: List,
 
 def plot_edge_dynamics(dynamics_df: pd.DataFrame,
                       graph_labels: List[str],
-                      gap_info: Dict,
+                      gap_info: GapInfo,
                       metric: str = "Edges_Formed",
                       output_file: Optional[str] = None,
                       save_path: Optional[str] = None) -> None:
@@ -308,7 +311,7 @@ def plot_edge_dynamics(dynamics_df: pd.DataFrame,
         warnings.warn(f"Error creating plot: {e}")
 
 
-def edge_formation(graphs: List,
+def edge_formation(graphs: List[ig.Graph],
                   graph_labels: Optional[List[str]] = None,
                   save_path: Optional[str] = None,
                   report_gaps: bool = False) -> pd.DataFrame:
@@ -370,7 +373,7 @@ def edge_formation(graphs: List,
     return dynamics_df
 
 
-def edge_dissolution(graphs: List,
+def edge_dissolution(graphs: List[ig.Graph],
                     graph_labels: Optional[List[str]] = None,
                     save_path: Optional[str] = None,
                     report_gaps: bool = False) -> pd.DataFrame:

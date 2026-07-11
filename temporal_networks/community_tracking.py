@@ -22,10 +22,13 @@ import logging
 import os
 import warnings
 
+import igraph as ig
 import pandas as pd
 import matplotlib.pyplot as plt
 from typing import Dict, List, Optional, Set
 from ._gap_utilities import (
+    GapInfo,
+    NodeKey,
     detect_temporal_gaps,
     print_gap_report,
     validate_and_setup_graphs,
@@ -47,7 +50,7 @@ _COLUMNS = ["Graph", "community_id", "lineage_id", "size", "event", "members"]
 # INTERNAL HELPERS
 # ============================================================================
 
-def _communities_as_keysets(partition, graph) -> List[Set]:
+def _communities_as_keysets(partition, graph: ig.Graph) -> List[Set[NodeKey]]:
     """
     Return each community as a set of vertex identity keys.
 
@@ -67,13 +70,13 @@ def _communities_as_keysets(partition, graph) -> List[Set]:
     if partition is None:
         return []
     keys = _vertex_keys(graph)
-    groups: Dict = {}
+    groups: Dict[int, Set[NodeKey]] = {}
     for vidx, cid in enumerate(partition.membership):
         groups.setdefault(cid, set()).add(keys[vidx])
     return [groups[cid] for cid in sorted(groups)]
 
 
-def _jaccard(a: Set, b: Set) -> float:
+def _jaccard(a: Set[NodeKey], b: Set[NodeKey]) -> float:
     """Jaccard overlap of two sets (0.0 when both are empty)."""
     if not a and not b:
         return 0.0
@@ -91,7 +94,7 @@ def _dominant(mapping: Dict[int, float]) -> int:
 # ============================================================================
 
 def track_communities(
-    graphs: List,
+    graphs: List[ig.Graph],
     graph_labels: Optional[List[str]] = None,
     algorithm: str = "multilevel",
     match_threshold: float = 0.3,
@@ -175,7 +178,7 @@ def track_communities(
     partitions, _ = _detect_communities(graphs, algorithm)
 
     # Per-snapshot communities as member-key sets.
-    comms: List[List[Set]] = [
+    comms: List[List[Set[NodeKey]]] = [
         _communities_as_keysets(partitions[i], graphs[i])
         for i in range(len(graphs))
     ]
@@ -264,7 +267,7 @@ def track_communities(
 def plot_community_lineage(
     tracking_df: pd.DataFrame,
     graph_labels: List[str],
-    gap_info: Dict,
+    gap_info: GapInfo,
     save_path: Optional[str] = None,
 ) -> None:
     """

@@ -25,11 +25,13 @@ import logging
 import os
 import warnings
 
+import igraph as ig
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 from typing import Dict, List, Optional, Set, Tuple
 from ._gap_utilities import (
+    NodeKey,
     detect_temporal_gaps,
     print_gap_report,
     validate_and_setup_graphs,
@@ -56,7 +58,7 @@ logger = logging.getLogger(__name__)
 # INTERNAL HELPERS
 # ============================================================================
 
-def _union_nodes(graphs: List) -> List:
+def _union_nodes(graphs: List[ig.Graph]) -> List[NodeKey]:
     """
     Return all node identity keys present in at least one snapshot.
 
@@ -70,13 +72,13 @@ def _union_nodes(graphs: List) -> List:
     list
         Sorted list of unique node keys across all snapshots.
     """
-    nodes: Set = set()
+    nodes: Set[NodeKey] = set()
     for g in graphs:
         nodes.update(_vertex_keys(g))
     return sorted(nodes, key=str)
 
 
-def _edges_keyed(graph) -> List[Tuple]:
+def _edges_keyed(graph: ig.Graph) -> List[Tuple[NodeKey, NodeKey]]:
     """
     Return edges as ``(key_u, key_v)`` pairs using vertex identity keys.
 
@@ -94,7 +96,7 @@ def _edges_keyed(graph) -> List[Tuple]:
     """
     keys = _vertex_keys(graph)
     directed = graph.is_directed()
-    edges: List[Tuple] = []
+    edges: List[Tuple[NodeKey, NodeKey]] = []
     for src, tgt in graph.get_edgelist():
         u, v = keys[src], keys[tgt]
         if u == v:
@@ -106,12 +108,12 @@ def _edges_keyed(graph) -> List[Tuple]:
 
 
 def _bfs_from_source(
-    graphs: List,
-    source,
+    graphs: List[ig.Graph],
+    source: NodeKey,
     gap_ends: Set[int],
     allow_wait: bool,
     cross_gaps: bool,
-) -> Dict:
+) -> Dict[NodeKey, int]:
     """
     Forward BFS from ``source`` over the snapshot sequence.
 
@@ -149,10 +151,10 @@ def _bfs_from_source(
         the arrival is the earliest over all valid paths (all segments).
         ``source`` always maps to 0.
     """
-    first_arrival: Dict = {source: 0}
+    first_arrival: Dict[NodeKey, int] = {source: 0}
     # Arrival steps of the paths confined to the current segment. Reset at
     # every gap boundary so no path (or wait) crosses a gap.
-    segment_arrival: Dict = {source: 0}
+    segment_arrival: Dict[NodeKey, int] = {source: 0}
 
     for t, graph in enumerate(graphs):
         if not cross_gaps and t in gap_ends:
@@ -162,7 +164,7 @@ def _bfs_from_source(
 
         # Only nodes reached BEFORE this snapshot may move, so arrivals
         # are buffered and merged after the sweep.
-        new_arrivals: Dict = {}
+        new_arrivals: Dict[NodeKey, int] = {}
         for u, v in _edges_keyed(graph):
             if v in segment_arrival or v in new_arrivals:
                 continue
@@ -181,9 +183,9 @@ def _bfs_from_source(
 
 
 def _foremost_paths_from_source(
-    graphs: List,
-    source,
-) -> Tuple[List, Dict, Dict]:
+    graphs: List[ig.Graph],
+    source: NodeKey,
+) -> Tuple[List[NodeKey], Dict[NodeKey, List[NodeKey]], Dict[NodeKey, float]]:
     """
     Forward pass of temporal Brandes from ``source`` (foremost paths).
 
@@ -213,17 +215,17 @@ def _foremost_paths_from_source(
     sigma : dict
         ``{node: number of foremost paths from source}`` as floats.
     """
-    arrival: Dict = {source: 0}
-    sigma: Dict = {source: 1.0}
-    preds: Dict = {source: []}
-    order: List = [source]
+    arrival: Dict[NodeKey, int] = {source: 0}
+    sigma: Dict[NodeKey, float] = {source: 1.0}
+    preds: Dict[NodeKey, List[NodeKey]] = {source: []}
+    order: List[NodeKey] = [source]
 
     for t, graph in enumerate(graphs):
         # Same one-hop-per-snapshot rule as _bfs_from_source: only nodes
         # reached before this snapshot may move. Buffering the layer's
         # arrivals also finalises sigma[u] before u is ever used as a
         # predecessor, making path counts independent of edge order.
-        new_arrivals: Dict = {}
+        new_arrivals: Dict[NodeKey, int] = {}
         for u, v in _edges_keyed(graph):
             if u not in arrival:
                 continue
@@ -248,7 +250,7 @@ def _foremost_paths_from_source(
 # ============================================================================
 
 def temporal_reachability(
-    graphs: List,
+    graphs: List[ig.Graph],
     graph_labels: Optional[List[str]] = None,
     allow_wait: bool = True,
     cross_gaps: bool = False,
@@ -350,7 +352,7 @@ def temporal_reachability(
 
 
 def temporal_distances(
-    graphs: List,
+    graphs: List[ig.Graph],
     graph_labels: Optional[List[str]] = None,
     allow_wait: bool = True,
     cross_gaps: bool = False,
@@ -405,7 +407,7 @@ def temporal_distances(
 
 
 def temporal_closeness(
-    graphs: List,
+    graphs: List[ig.Graph],
     graph_labels: Optional[List[str]] = None,
     cross_gaps: bool = False,
     save_path: Optional[str] = None,
@@ -495,7 +497,7 @@ def temporal_closeness(
 
 
 def temporal_efficiency(
-    graphs: List,
+    graphs: List[ig.Graph],
     graph_labels: Optional[List[str]] = None,
     cross_gaps: bool = False,
 ) -> float:
@@ -548,7 +550,7 @@ def temporal_efficiency(
 
 
 def temporal_betweenness(
-    graphs: List,
+    graphs: List[ig.Graph],
     graph_labels: Optional[List[str]] = None,
     cross_gaps: bool = False,
     normalized: bool = True,
@@ -643,14 +645,14 @@ def temporal_betweenness(
         warnings.warn(f"Could not collect node set: {e}")
         return pd.DataFrame(columns=_BETW_COLS)
 
-    betweenness: Dict = {n: 0.0 for n in all_nodes}
+    betweenness: Dict[NodeKey, float] = {n: 0.0 for n in all_nodes}
 
     for source in all_nodes:
         try:
             # Nodes whose global foremost arrival is already fixed by an
             # earlier segment (arrivals in later segments are strictly
             # later, so the first segment reaching a node is foremost).
-            seen: Set = {source}
+            seen: Set[NodeKey] = {source}
             for seg_start, seg_end in segments:
                 order, preds, sigma = _foremost_paths_from_source(
                     graphs[seg_start:seg_end], source)
@@ -660,7 +662,7 @@ def temporal_betweenness(
                 counted = {w for w in order if w not in seen}
                 seen.update(order)
 
-                delta: Dict = {n: 0.0 for n in order}
+                delta: Dict[NodeKey, float] = {n: 0.0 for n in order}
                 # Reverse arrival order: accumulate dependencies
                 # leaf-to-root.
                 for w in reversed(order):

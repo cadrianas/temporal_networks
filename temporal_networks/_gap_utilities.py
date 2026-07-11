@@ -9,10 +9,36 @@ import re
 import warnings
 from collections import Counter
 from datetime import datetime
-from typing import Dict, List, Optional, Set, Tuple
+from typing import List, Optional, Set, Tuple, TypedDict, Union
 
+import igraph as ig
 import numpy as np
 import pandas as pd
+
+# A vertex identity key: the vertex "name" (or "label") when present —
+# usually a string — otherwise the integer vertex index. See _vertex_keys.
+NodeKey = Union[str, int]
+
+
+class GapDict(TypedDict):
+    """One detected temporal gap (an entry of ``GapInfo["gaps"]``)."""
+
+    start_idx: int
+    end_idx: int
+    start_label: str
+    end_label: str
+    gap_size: float
+
+
+class GapInfo(TypedDict):
+    """Return schema of :func:`detect_temporal_gaps`."""
+
+    has_gaps: bool
+    num_gaps: int
+    gaps: List[GapDict]
+    segments: List[Tuple[int, int]]
+    report: str
+
 
 # Pattern of the auto-generated placeholder labels produced by
 # ``validate_and_setup_graphs`` when the user supplies no labels. These
@@ -25,7 +51,7 @@ _DEFAULT_LABEL_RE = re.compile(r"^Graph \d+$")
 # VALIDATION UTILITIES
 # ============================================================================
 
-def validate_and_setup_graphs(graphs: List,
+def validate_and_setup_graphs(graphs: List[ig.Graph],
                               graph_labels: Optional[List[str]] = None,
                               min_length: int = 1) -> List[str]:
     """
@@ -61,7 +87,7 @@ def validate_and_setup_graphs(graphs: List,
     return graph_labels
 
 
-def _vertex_keys(graph) -> list:
+def _vertex_keys(graph: ig.Graph) -> List[NodeKey]:
     """
     Return per-vertex identity keys for a graph.
 
@@ -119,9 +145,10 @@ def _vertex_keys(graph) -> list:
     return keys
 
 
-def _active_nodes(edge_set: Set) -> Set:
+def _active_nodes(
+        edge_set: Set[Tuple[NodeKey, NodeKey]]) -> Set[NodeKey]:
     """Return the set of node keys that are an endpoint of at least one edge."""
-    nodes: Set = set()
+    nodes: Set[NodeKey] = set()
     for u, v in edge_set:
         nodes.add(u)
         nodes.add(v)
@@ -295,7 +322,7 @@ def _infer_unit_and_threshold(graph_labels: List[str]) -> Tuple[str, int]:
 def detect_temporal_gaps(graph_labels: List[str],
                          gap_threshold: Optional[int] = None,
                          unit: Optional[str] = None,
-                         verbose: bool = False) -> Dict:
+                         verbose: bool = False) -> GapInfo:
     """
     Detect temporal gaps in a list of labels with detailed reporting.
 
@@ -409,8 +436,8 @@ def detect_temporal_gaps(graph_labels: List[str],
         }
 
     # Find gaps
-    gaps = []
-    segments = []
+    gaps: List[GapDict] = []
+    segments: List[Tuple[int, int]] = []
     segment_start = 0
 
     for i in range(1, len(parsed_dates)):
@@ -440,7 +467,7 @@ def detect_temporal_gaps(graph_labels: List[str],
     # Generate report
     report = _generate_gap_report_text(graph_labels, gaps, unit=unit)
 
-    result = {
+    result: GapInfo = {
         "has_gaps": len(gaps) > 0,
         "num_gaps": len(gaps),
         "gaps": gaps,
@@ -454,7 +481,7 @@ def detect_temporal_gaps(graph_labels: List[str],
     return result
 
 
-def _generate_gap_report_text(graph_labels: List[str], gaps: List[Dict],
+def _generate_gap_report_text(graph_labels: List[str], gaps: List[GapDict],
                               unit: str = "months") -> str:
     """
     Generate human-readable gap report string.
@@ -520,7 +547,7 @@ def _generate_gap_report_text(graph_labels: List[str], gaps: List[Dict],
 # REPORTING & PUBLIC UTILITIES
 # ============================================================================
 
-def print_gap_report(graph_labels: List[str], gap_info: Dict,
+def print_gap_report(graph_labels: List[str], gap_info: GapInfo,
                      unit: str = "months") -> None:
     """
     Print human-readable gap analysis report to console.
@@ -545,7 +572,8 @@ def print_gap_report(graph_labels: List[str], gap_info: Dict,
         print(_generate_gap_report_text(graph_labels, gap_info.get("gaps", []), unit))
 
 
-def create_gap_dataframe(graph_labels: List[str], gap_info: Dict) -> pd.DataFrame:
+def create_gap_dataframe(graph_labels: List[str],
+                         gap_info: GapInfo) -> pd.DataFrame:
     """
     Create a DataFrame summarizing detected gaps.
 
@@ -611,7 +639,8 @@ def format_large_numbers(x: float, pos: int) -> str:
 
 
 def plot_with_gap_handling(ax, graph_labels: List[str], y_values,
-                           gap_segments: List[Tuple], **kwargs) -> None:
+                           gap_segments: List[Tuple[int, int]],
+                           **kwargs) -> None:
     """
     Plot data with proper handling of temporal gaps.
 

@@ -15,11 +15,13 @@ import logging
 import os
 import warnings
 
+import igraph as ig
 import pandas as pd
 import matplotlib.pyplot as plt
 import numpy as np
 from typing import List, Optional
 from ._gap_utilities import (
+    GapInfo,
     detect_temporal_gaps,
     print_gap_report,
     plot_with_gap_handling,
@@ -41,7 +43,7 @@ logger = logging.getLogger(__name__)
 # MAIN FUNCTION
 # ============================================================================
 
-def network_properties(graphs: List,
+def network_properties(graphs: List[ig.Graph],
                       graph_labels: Optional[List[str]] = None,
                       filename: Optional[str] = None,
                       save_path: Optional[str] = None,
@@ -221,7 +223,7 @@ def network_properties(graphs: List,
     return network_data
 
 
-def _plot_properties(network_data: pd.DataFrame, gap_info: dict,
+def _plot_properties(network_data: pd.DataFrame, gap_info: GapInfo,
                      save_path: str) -> None:
     """
     Generate and save plots for network properties over time.

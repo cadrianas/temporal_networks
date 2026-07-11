@@ -15,11 +15,13 @@ import logging
 import os
 import warnings
 
+import igraph as ig
 import pandas as pd
 import matplotlib.pyplot as plt
 import numpy as np
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 from ._gap_utilities import (
+    GapInfo,
     detect_temporal_gaps,
     print_gap_report,
     plot_with_gap_handling,
@@ -34,7 +36,7 @@ logger = logging.getLogger(__name__)
 # MAIN FUNCTION
 # ============================================================================
 
-def vertex_properties(graphs: List,
+def vertex_properties(graphs: List[ig.Graph],
                      node_name: str,
                      graph_labels: Optional[List[str]] = None,
                      filename: Optional[str] = None,
@@ -141,7 +143,7 @@ def vertex_properties(graphs: List,
 
     return properties_df
 
-def _compute_vertex_properties(graphs: List, node_name: str,
+def _compute_vertex_properties(graphs: List[ig.Graph], node_name: str,
                                graph_labels: List[str]) -> pd.DataFrame:
     """
     Compute vertex properties for a single node across graphs.
@@ -160,7 +162,7 @@ def _compute_vertex_properties(graphs: List, node_name: str,
     pandas.DataFrame
         One row per graph with a column for each computed metric.
     """
-    properties: dict = {
+    properties: Dict[str, List[Any]] = {
         "Graph": [],
         "Degree_Centrality": [],
         "Closeness_Centrality": [],
@@ -275,7 +277,7 @@ def _compute_vertex_properties(graphs: List, node_name: str,
 
 
 def _plot_vertex_properties(properties_df: pd.DataFrame, node_name: str,
-                            graph_labels: List[str], gap_info: dict,
+                            graph_labels: List[str], gap_info: GapInfo,
                             save_path: str) -> None:
     """
     Plot vertex properties over time with gap handling.
