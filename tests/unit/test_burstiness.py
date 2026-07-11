@@ -26,6 +26,15 @@ def _off():
 
 
 class TestInterEventTimes(unittest.TestCase):
+    def test_rows_sorted_chronologically_not_lexicographically(self):
+        """Default labels ("Graph 10" < "Graph 2" as strings) must come
+        out in snapshot order."""
+        # Edge active at snapshots 0, 1, 9, 10 -> three intervals.
+        graphs = [_on(), _on()] + [_off()] * 7 + [_on(), _on()]
+        df = inter_event_times(graphs)  # default "Graph N" labels
+        self.assertEqual(list(df["start_label"]),
+                         ["Graph 1", "Graph 2", "Graph 10"])
+
     def test_intervals_in_inferred_unit(self):
         graphs = [_on(), _off(), _on()]  # active at 0 and 2
         labels = ["2024-01", "2024-02", "2024-03"]

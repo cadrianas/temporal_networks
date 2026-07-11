@@ -1,7 +1,6 @@
 import unittest
 from unittest.mock import patch
-import io
-import contextlib
+import os
 import tempfile
 import pandas as pd
 import igraph as ig
@@ -73,6 +72,28 @@ class TestCalculateCentralities(unittest.TestCase):
         )
 
         self.assertListEqual(list(df["Node"]), ["X", "Y", "Z"])
+
+    def test_no_files_written_by_default(self):
+        """Default save_path is None: nothing lands in the CWD."""
+        g = ig.Graph(n=3, edges=[(0, 1), (1, 2)])
+        g.vs["name"] = ["a", "b", "c"]
+        cwd = os.getcwd()
+        try:
+            with tempfile.TemporaryDirectory() as tmp:
+                os.chdir(tmp)
+                calculate_centralities([g], graph_labels=["2024-01"])
+                self.assertEqual(os.listdir(tmp), [])
+        finally:
+            os.chdir(cwd)
+
+    def test_visualize_without_save_path_warns(self):
+        g = ig.Graph(n=3, edges=[(0, 1), (1, 2)])
+        g.vs["name"] = ["a", "b", "c"]
+        with self.assertWarns(UserWarning) as ctx:
+            calculate_centralities([g, g.copy()],
+                                   graph_labels=["2024-01", "2024-02"],
+                                   visualize_evolution=True)
+        self.assertIn("save_path", str(ctx.warning))
 
     def test_node_label_extraction_fallback(self):
         """Test fallback node label generation when no name or label exists."""

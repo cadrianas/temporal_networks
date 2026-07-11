@@ -26,6 +26,7 @@ from ._gap_utilities import (
     plot_with_gap_handling,
     validate_and_setup_graphs,
     _vertex_keys,
+    _active_nodes,
 )
 from .edge_formation_dissolution import _edge_identity_set
 
@@ -43,15 +44,6 @@ logger = logging.getLogger(__name__)
 # ============================================================================
 # INTERNAL HELPERS
 # ============================================================================
-
-def _active_nodes(edge_set: Set) -> Set:
-    """Return the set of node keys that are an endpoint of at least one edge."""
-    nodes: Set = set()
-    for u, v in edge_set:
-        nodes.add(u)
-        nodes.add(v)
-    return nodes
-
 
 def _neighbor_sets(graph) -> Dict:
     """

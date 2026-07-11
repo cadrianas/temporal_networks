@@ -40,7 +40,7 @@ def calculate_centralities(graphs: List,
                           filename: Optional[str] = None,
                           report_gaps: bool = False,
                           visualize_evolution: bool = False,
-                          save_path: str = "plots/") -> pd.DataFrame:
+                          save_path: Optional[str] = None) -> pd.DataFrame:
     """
     Compute comprehensive centrality measures for nodes across multiple graphs.
 
@@ -69,8 +69,10 @@ def calculate_centralities(graphs: List,
     visualize_evolution : bool, optional
         If True, creates plots showing how centrality measures evolve over time
         (default: False). This is useful for tracking important nodes.
+        Requires ``save_path``; a warning is emitted if it is missing.
     save_path : str, optional
-        Directory for saving visualizations (default: "plots/")
+        Directory for saving visualizations. If None (default), no plot
+        files are written.
 
     Returns
     -------
@@ -236,9 +238,13 @@ def calculate_centralities(graphs: List,
 
     # Optional: Visualize centrality evolution over time
     if visualize_evolution:
-        _visualize_centrality_evolution(
-            centralities_df, graph_labels, gap_info, save_path
-        )
+        if save_path is None:
+            warnings.warn("visualize_evolution=True but save_path is None; "
+                          "no plots will be saved")
+        else:
+            _visualize_centrality_evolution(
+                centralities_df, graph_labels, gap_info, save_path
+            )
 
     return centralities_df
 

@@ -22,7 +22,7 @@ import warnings
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-from typing import List, Optional, Dict, Set
+from typing import Dict, List, Optional
 from ._gap_utilities import (
     detect_temporal_gaps,
     print_gap_report,
@@ -30,6 +30,7 @@ from ._gap_utilities import (
     parse_flexible_datetime,
     calculate_time_difference,
     _infer_unit_and_threshold,
+    _active_nodes,
 )
 from .edge_formation_dissolution import _edge_identity_set
 
@@ -48,15 +49,6 @@ _BURST_COLUMNS = ["entity", "n_events", "mean_interval", "std_interval",
 # ============================================================================
 # INTERNAL HELPERS
 # ============================================================================
-
-def _active_nodes(edge_set: Set) -> Set:
-    """Return the set of node keys that are an endpoint of at least one edge."""
-    nodes: Set = set()
-    for u, v in edge_set:
-        nodes.add(u)
-        nodes.add(v)
-    return nodes
-
 
 def _entity_active_indices(graphs: List, by: str) -> Dict[str, List[int]]:
     """
@@ -164,8 +156,9 @@ def inter_event_times(graphs: List,
         - ``interval``: duration in the inferred time unit
         - ``spans_gap``: whether the interval crosses a detected data gap
 
-        Sorted by ``entity`` then ``start_label``. Empty input returns an empty
-        DataFrame with these columns.
+        Sorted by ``entity`` then snapshot order (chronological, not
+        lexicographic). Empty input returns an empty DataFrame with these
+        columns.
 
     Examples
     --------
@@ -207,6 +200,9 @@ def inter_event_times(graphs: List,
                     "interval": _interval_duration(i_a, i_b, graph_labels,
                                                    unit),
                     "spans_gap": spans,
+                    # snapshot index, for chronological sorting (string
+                    # labels like "Graph 10" sort before "Graph 2")
+                    "_start_idx": i_a,
                 })
             except Exception as e:
                 warnings.warn(f"Error timing entity {entity} between "
@@ -217,7 +213,8 @@ def inter_event_times(graphs: List,
     df = pd.DataFrame(rows)
     if df.empty:
         return pd.DataFrame(columns=_IET_COLUMNS)
-    return (df.sort_values(["entity", "start_label"])
+    return (df.sort_values(["entity", "_start_idx"])
+              .drop(columns="_start_idx")
               .reset_index(drop=True))
 
 

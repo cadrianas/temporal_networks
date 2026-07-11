@@ -82,6 +82,16 @@ class TestVertexProperties(unittest.TestCase):
         self.assertEqual(len(files), 0)
         self.assertEqual(len(df), 3)
 
+    def test_missing_metrics_are_numeric_nan(self):
+        """All-missing metrics (HITS on undirected graphs) must be NaN in a
+        numeric column, not None in an object column."""
+        df = vertex_properties([self.g1, self.g2], node_name="Node_5",
+                               graph_labels=["2024-01", "2024-02"],
+                               visualisation=False, report_gaps=False)
+        for col in ("Authority_Score", "Hub_Score"):
+            self.assertTrue(df[col].isna().all())
+            self.assertTrue(pd.api.types.is_float_dtype(df[col]), col)
+
     def test_vertex_properties_label_attribute(self):
         """Test vertex_properties matching nodes using 'label' instead of 'name'"""
         # Remove name attribute, use label instead

@@ -104,6 +104,10 @@ def network_properties(graphs: List,
     - Local structure: clustering coefficient, reciprocity
     - Graph type: directed, weighted, bipartite, etc.
 
+    For undirected graphs, the "Strongly Connected Components" column equals
+    the number of connected components (every undirected component is
+    trivially strongly connected).
+
     Gap Detection:
     - Automatically analyzes temporal labels
     - Reports if data has gaps (missing time periods)

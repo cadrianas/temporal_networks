@@ -7,10 +7,12 @@ and gap-aware plotting across the temporal_networks package.
 
 import re
 import warnings
+from collections import Counter
+from datetime import datetime
+from typing import Dict, List, Optional, Set, Tuple
+
 import numpy as np
 import pandas as pd
-from datetime import datetime
-from typing import List, Tuple, Optional, Dict
 
 # Pattern of the auto-generated placeholder labels produced by
 # ``validate_and_setup_graphs`` when the user supplies no labels. These
@@ -80,6 +82,14 @@ def _vertex_keys(graph) -> list:
         ``name`` values, the ``label`` values, or ``list(range(vcount))`` as a
         fallback when neither attribute is present.
 
+    Raises
+    ------
+    ValueError
+        If two vertices share the same ``name`` (or ``label``) key.
+        Duplicate keys would silently merge distinct vertices in every
+        identity-based comparison (edge sets, neighbourhoods, temporal
+        paths), corrupting results without any visible error.
+
     Examples
     --------
     >>> import igraph as ig
@@ -93,10 +103,29 @@ def _vertex_keys(graph) -> list:
     """
     attrs = graph.vs.attributes()
     if "name" in attrs:
-        return list(graph.vs["name"])
-    if "label" in attrs:
-        return list(graph.vs["label"])
-    return list(range(graph.vcount()))
+        keys, attr = list(graph.vs["name"]), "name"
+    elif "label" in attrs:
+        keys, attr = list(graph.vs["label"]), "label"
+    else:
+        return list(range(graph.vcount()))
+
+    if len(set(keys)) != len(keys):
+        dupes = sorted((k for k, c in Counter(keys).items() if c > 1),
+                       key=str)
+        raise ValueError(
+            f"Duplicate vertex {attr!r} keys {dupes[:5]} in graph: node "
+            f"identity must be unique for cross-snapshot comparison. "
+            f"Rename the duplicated vertices before analysis.")
+    return keys
+
+
+def _active_nodes(edge_set: Set) -> Set:
+    """Return the set of node keys that are an endpoint of at least one edge."""
+    nodes: Set = set()
+    for u, v in edge_set:
+        nodes.add(u)
+        nodes.add(v)
+    return nodes
 
 
 # ============================================================================

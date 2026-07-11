@@ -222,6 +222,25 @@ class TestVertexKeys(unittest.TestCase):
     def test_empty_graph(self):
         self.assertEqual(_vertex_keys(ig.Graph(n=0)), [])
 
+    def test_duplicate_names_raise(self):
+        """Duplicate identity keys must raise, not silently merge nodes."""
+        g = ig.Graph(n=3)
+        g.vs["name"] = ["a", "b", "a"]
+        with self.assertRaises(ValueError) as ctx:
+            _vertex_keys(g)
+        self.assertIn("'a'", str(ctx.exception))
+
+    def test_duplicate_labels_raise(self):
+        g = ig.Graph(n=2)
+        g.vs["label"] = ["x", "x"]
+        with self.assertRaises(ValueError):
+            _vertex_keys(g)
+
+    def test_unique_names_still_fine(self):
+        g = ig.Graph(n=3)
+        g.vs["name"] = ["a", "b", "c"]
+        self.assertEqual(_vertex_keys(g), ["a", "b", "c"])
+
 
 if __name__ == '__main__':
     unittest.main()

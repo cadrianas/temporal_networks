@@ -11,7 +11,7 @@ import warnings
 import plotly.graph_objs as go
 from plotly.offline import plot
 import random
-from typing import List, Any
+from typing import Any, List, Optional
 from ._gap_utilities import validate_and_setup_graphs
 from ._community_utils import _detect_communities
 
@@ -20,7 +20,8 @@ logger = logging.getLogger(__name__)
 
 def plot_community_evolution(graphs: List,
                             community_algorithm: str,
-                            output_file: str = "community_evolution.html") -> None:
+                            output_file: str = "community_evolution.html",
+                            seed: Optional[int] = None) -> None:
     """
     Create interactive animation of community evolution across temporal network.
 
@@ -45,6 +46,11 @@ def plot_community_evolution(graphs: List,
         - "louvain"
     output_file : str, optional
         Filename for saving the HTML animation (default: "community_evolution.html")
+    seed : int, optional
+        Seed for the random node positions used when graphs carry no
+        "x"/"y" vertex attributes. Positions come from a local RNG, so the
+        global ``random`` module state is never touched. If None (default),
+        positions differ between runs.
 
     Returns
     -------
@@ -81,7 +87,8 @@ def plot_community_evolution(graphs: List,
 
     communities_list, algo_name = _detect_communities(graphs, community_algorithm)
 
-    frames = _create_animation_frames(graphs, communities_list)
+    rng = random.Random(seed)
+    frames = _create_animation_frames(graphs, communities_list, rng)
 
     if not frames:
         raise RuntimeError("No frames were successfully created. "
@@ -102,7 +109,8 @@ def plot_community_evolution(graphs: List,
 
 
 def _create_animation_frames(graphs: List,
-                             communities_list: List[Any]) -> List[go.Frame]:
+                             communities_list: List[Any],
+                             rng: random.Random) -> List[go.Frame]:
     """
     Create Plotly animation frames from graphs and their partitions.
 
@@ -112,6 +120,8 @@ def _create_animation_frames(graphs: List,
         Graphs to render, one per animation frame.
     communities_list : list
         Community partition for each graph (None entries are skipped).
+    rng : random.Random
+        Local RNG for fallback node positions (graphs without "x"/"y").
 
     Returns
     -------
@@ -130,7 +140,7 @@ def _create_animation_frames(graphs: List,
             if "x" in graph.vs.attributes() and "y" in graph.vs.attributes():
                 pos = [(node["x"], node["y"]) for node in graph.vs]
             else:
-                pos = [(random.uniform(0, 1), random.uniform(0, 1))
+                pos = [(rng.uniform(0, 1), rng.uniform(0, 1))
                        for _ in graph.vs]
                 logger.info("Frame %d using random positions "
                             "(no x/y vertex attributes)", frame_idx)

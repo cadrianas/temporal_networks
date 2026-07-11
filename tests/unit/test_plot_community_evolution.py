@@ -48,5 +48,22 @@ class TestPlotCommunityEvolution(unittest.TestCase):
                                  output_file=self.output_file)
         self.assertTrue(os.path.exists(self.output_file))
 
+    def test_positions_use_local_rng(self):
+        """Fallback node positions must not consume global random state.
+
+        fast_greedy is deterministic (no RNG), so any change to the global
+        random state would come from position generation — which now uses
+        a local seeded RNG. (Louvain would consume global random via
+        igraph's default generator, unrelated to positions.)
+        """
+        import random
+        graphs = [ig.Graph.Ring(n=10) for _ in range(2)]  # no x/y attributes
+        random.seed(123)
+        state_before = random.getstate()
+        plot_community_evolution(graphs, community_algorithm="fast_greedy",
+                                 output_file=self.output_file, seed=42)
+        self.assertEqual(random.getstate(), state_before)
+        self.assertTrue(os.path.exists(self.output_file))
+
 if __name__ == '__main__':
     unittest.main()

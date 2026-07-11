@@ -194,7 +194,7 @@ def _compute_vertex_properties(graphs: List, node_name: str,
             properties["Graph"].append(graph_name)
             for key in properties:
                 if key != "Graph":
-                    properties[key].append(None)
+                    properties[key].append(np.nan)
             continue
 
         # Record graph name
@@ -204,55 +204,55 @@ def _compute_vertex_properties(graphs: List, node_name: str,
         try:
             properties["Degree_Centrality"].append(graph.degree()[node_index])
         except Exception:
-            properties["Degree_Centrality"].append(None)
+            properties["Degree_Centrality"].append(np.nan)
 
         try:
             properties["Closeness_Centrality"].append(graph.closeness()[node_index])
         except Exception:
-            properties["Closeness_Centrality"].append(None)
+            properties["Closeness_Centrality"].append(np.nan)
 
         try:
             properties["Betweenness_Centrality"].append(graph.betweenness()[node_index])
         except Exception:
-            properties["Betweenness_Centrality"].append(None)
+            properties["Betweenness_Centrality"].append(np.nan)
 
         try:
             properties["Eigenvector_Centrality"].append(
                 graph.eigenvector_centrality()[node_index])
         except Exception:
-            properties["Eigenvector_Centrality"].append(None)
+            properties["Eigenvector_Centrality"].append(np.nan)
 
         try:
             properties["PageRank"].append(graph.pagerank()[node_index])
         except Exception:
-            properties["PageRank"].append(None)
+            properties["PageRank"].append(np.nan)
 
         try:
             properties["Harmonic_Centrality"].append(
                 graph.harmonic_centrality()[node_index])
         except Exception:
-            properties["Harmonic_Centrality"].append(None)
+            properties["Harmonic_Centrality"].append(np.nan)
 
         try:
             properties["Eccentricity"].append(graph.eccentricity()[node_index])
         except Exception:
-            properties["Eccentricity"].append(None)
+            properties["Eccentricity"].append(np.nan)
 
         try:
             properties["Clustering_Coefficient"].append(
                 graph.transitivity_local_undirected()[node_index])
         except Exception:
-            properties["Clustering_Coefficient"].append(None)
+            properties["Clustering_Coefficient"].append(np.nan)
 
         try:
             properties["Constraint"].append(graph.constraint()[node_index])
         except Exception:
-            properties["Constraint"].append(None)
+            properties["Constraint"].append(np.nan)
 
         try:
             properties["Coreness"].append(graph.coreness()[node_index])
         except Exception:
-            properties["Coreness"].append(None)
+            properties["Coreness"].append(np.nan)
 
         # HITS hub/authority scores are only meaningful for directed graphs
         if graph.is_directed():
@@ -260,15 +260,15 @@ def _compute_vertex_properties(graphs: List, node_name: str,
                 properties["Authority_Score"].append(
                     graph.authority_score()[node_index])
             except Exception:
-                properties["Authority_Score"].append(None)
+                properties["Authority_Score"].append(np.nan)
 
             try:
                 properties["Hub_Score"].append(graph.hub_score()[node_index])
             except Exception:
-                properties["Hub_Score"].append(None)
+                properties["Hub_Score"].append(np.nan)
         else:
-            properties["Authority_Score"].append(None)
-            properties["Hub_Score"].append(None)
+            properties["Authority_Score"].append(np.nan)
+            properties["Hub_Score"].append(np.nan)
 
     # Convert to DataFrame
     return pd.DataFrame(properties)
