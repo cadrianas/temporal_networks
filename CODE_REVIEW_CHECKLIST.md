@@ -136,7 +136,11 @@ Check items off as they are fixed.
   breaks chronology for non-zero-padded labels ("2024-W9" > "2024-W10").
   **Fix:** sort by snapshot index.
 
-- [ ] **14. z-score footgun undocumented** — with population std, max |z| in a
+- [x] **14. z-score footgun undocumented** *(fixed 2026-07-11: documented
+  in the `threshold` parameter and a `Warns` section, and
+  `detect_change_points` now warns naming the too-short segments and the
+  minimum length for the chosen threshold; regression tests added)*
+  — with population std, max |z| in a
   segment of n points is √(n−1), so the default `threshold=3.0` can never flag
   anything in segments shorter than 11 snapshots. Document in
   `detect_change_points`, and consider warning when a segment is too short.

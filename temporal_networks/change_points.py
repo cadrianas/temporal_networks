@@ -17,6 +17,7 @@ KEY FEATURES:
   data closure is not flagged as an anomaly.
 """
 
+import math
 import warnings
 
 import igraph as ig
@@ -188,6 +189,45 @@ def _pelt_flags(series: np.ndarray, segments: List[Tuple[int, int]],
     return flags
 
 
+def _warn_unattainable_zscore(segments: List[Tuple[int, int]],
+                              threshold: float) -> None:
+    """
+    Warn when the z-score threshold is mathematically unattainable.
+
+    With the population standard deviation, the largest |z| any single
+    point in a segment of ``n`` values can attain is ``sqrt(n - 1)``
+    (reached by one outlier among otherwise identical values). If that
+    bound does not exceed ``threshold``, no point in the segment can ever
+    be flagged — e.g. the default ``threshold=3.0`` needs segments of at
+    least 11 points.
+
+    Parameters
+    ----------
+    segments : list of tuple
+        ``(start, end)`` row-index pairs being scored.
+    threshold : float
+        The z-score threshold in use.
+
+    Returns
+    -------
+    None
+    """
+    too_short = [(start, end) for start, end in segments
+                 if end - start >= 2
+                 and math.sqrt(end - start - 1) <= threshold]
+    if not too_short:
+        return
+    n_min = 2
+    while math.sqrt(n_min - 1) <= threshold:
+        n_min += 1
+    warnings.warn(
+        f"zscore with threshold={threshold} can never flag anything in "
+        f"segments shorter than {n_min} points (the largest attainable "
+        f"|z| in an n-point segment is sqrt(n - 1)); segment(s) "
+        f"{too_short} are too short. Lower the threshold or use "
+        f"method='diff'.")
+
+
 def _segments_for_frame(series_df: pd.DataFrame, label_col: str,
                         gap_info: Optional[GapInfo]
                         ) -> List[Tuple[int, int]]:
@@ -292,6 +332,14 @@ def detect_change_points(
         3-sigma rule (``threshold=3.0``) is a common starting point. For
         ``"pelt"``, this is the penalty value forwarded to
         ``ruptures.Pelt.predict``.
+
+        Note that the z-score uses the population standard deviation, so
+        the largest |z| any single point in an ``n``-point segment can
+        attain is ``sqrt(n - 1)``: ``threshold=3.0`` can only ever flag
+        points in segments of 11 or more snapshots (``threshold=2.0``
+        needs 6). A warning is emitted when a segment is too short for
+        the chosen threshold; lower the threshold or use ``"diff"`` for
+        short segments.
     label_col : str, optional
         Column in ``series_df`` that contains the snapshot label (default
         ``"Graph"``). Used to populate the ``label`` column in the output.
@@ -317,6 +365,12 @@ def detect_change_points(
 
         Returns an empty DataFrame with the correct columns when no change
         points are found.
+
+    Warns
+    -----
+    UserWarning
+        With ``method="zscore"``, when a segment is too short for any
+        point to reach ``threshold`` (see the ``threshold`` parameter).
 
     Examples
     --------
@@ -344,6 +398,9 @@ def detect_change_points(
     # output, which starts at the second label) are still split at the
     # right rows.
     segments = _segments_for_frame(series_df, label_col, gap_info)
+
+    if method == "zscore":
+        _warn_unattainable_zscore(segments, threshold)
 
     rows = []
     for col in columns:

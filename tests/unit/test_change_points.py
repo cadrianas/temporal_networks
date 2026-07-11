@@ -203,6 +203,53 @@ class TestGapAwareness(unittest.TestCase):
 
 
 # ---------------------------------------------------------------------------
+# Unattainable-threshold warning (zscore)
+# ---------------------------------------------------------------------------
+
+class TestUnattainableThresholdWarning(unittest.TestCase):
+    """With population std, max |z| in an n-point segment is sqrt(n - 1),
+    so threshold=3.0 can never fire in segments shorter than 11 points."""
+
+    def test_short_segment_warns(self):
+        df = _simple_df([1.0, 2.0, 1.0, 2.0, 9.0])       # 5 points
+        with self.assertWarns(UserWarning) as ctx:
+            detect_change_points(df, method="zscore", threshold=3.0)
+        msg = str(ctx.warning)
+        self.assertIn("11 points", msg)                   # required length
+        self.assertIn("sqrt(n - 1)", msg)
+
+    def test_long_segment_does_not_warn(self):
+        import warnings as _warnings
+        df = _simple_df([1.0] * 12)                       # 12 >= 11
+        with _warnings.catch_warnings(record=True) as w:
+            _warnings.simplefilter("always")
+            detect_change_points(df, method="zscore", threshold=3.0)
+        self.assertFalse([x for x in w
+                          if "can never flag" in str(x.message)])
+
+    def test_diff_method_does_not_warn(self):
+        import warnings as _warnings
+        df = _simple_df([1.0, 2.0, 1.0])
+        with _warnings.catch_warnings(record=True) as w:
+            _warnings.simplefilter("always")
+            detect_change_points(df, method="diff", threshold=3.0)
+        self.assertFalse([x for x in w
+                          if "can never flag" in str(x.message)])
+
+    def test_gap_segments_checked_individually(self):
+        """12 rows split by a gap into 6+6: threshold 3.0 unattainable in
+        both halves even though the whole series would be long enough."""
+        from temporal_networks import detect_temporal_gaps
+        labels = ([f"2024-{m:02d}" for m in range(1, 7)] +
+                  [f"2025-{m:02d}" for m in range(6, 12)])
+        gi = detect_temporal_gaps(labels)
+        df = _simple_df(list(range(12)), labels)
+        with self.assertWarns(UserWarning):
+            detect_change_points(df, method="zscore", threshold=3.0,
+                                 gap_info=gi)
+
+
+# ---------------------------------------------------------------------------
 # PELT (optional dependency)
 # ---------------------------------------------------------------------------
 
