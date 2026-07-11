@@ -164,7 +164,14 @@ Check items off as they are fixed.
 
 ## Environment note (not a code defect)
 
-- [ ] **18. `.venv-audit` editable install is broken on Python 3.14** —
+- [x] **18. `.venv-audit` editable install is broken on Python 3.14**
+  *(fixed 2026-07-11: root cause was the macOS `UF_HIDDEN` file flag on
+  the `__editable__*.pth` — Python 3.14's site module skips hidden .pth
+  files. Reinstalled editable (strict mode, so the finder maps only
+  `temporal_networks`) and cleared the flag with `chflags nohidden`;
+  imports now work from any cwd, no bogus top-level packages, and the
+  test suite runs without `PYTHONPATH=.`. If a future reinstall
+  re-sets the flag, re-run `chflags nohidden` on the .pth.)* —
   Python 3.14 skips the `__editable__*.pth` file as hidden, so the package
   only imports when cwd is the repo root; the stale finder also maps
   `docs`/`paper`/`specs` as packages (predates the `packages.find` include).
