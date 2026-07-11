@@ -25,7 +25,7 @@ class TestCommunitiesMeasuresException(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmpdirname:
             # Patch one algorithm to fail to see the specific warning
             with patch('igraph.Graph.community_leiden',
-                       side_effect=Exception("Test Exception")):
+                       side_effect=ig.InternalError("Test Exception")):
                 with self.assertWarns(UserWarning):
                     results = _quiet(
                         graphs=[g],

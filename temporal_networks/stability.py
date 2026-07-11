@@ -24,6 +24,7 @@ from typing import Any, Dict, List, Optional, Set
 from ._gap_utilities import (
     GapInfo,
     NodeKey,
+    _COMPUTE_ERRORS,
     detect_temporal_gaps,
     print_gap_report,
     plot_with_gap_handling,
@@ -201,7 +202,7 @@ def snapshot_similarity(graphs: List[ig.Graph],
                          "node_persistence": node_pers,
                          "temporal_correlation": tc})
 
-        except Exception as e:
+        except _COMPUTE_ERRORS as e:
             # Emit a NaN row so the output keeps one row per consecutive
             # pair even when a comparison fails.
             warnings.warn(
@@ -265,7 +266,7 @@ def temporal_correlation_coefficient(
         try:
             c = _temporal_correlation_pair(_neighbor_sets(graphs[i - 1]),
                                            _neighbor_sets(graphs[i]))
-        except Exception as e:
+        except _COMPUTE_ERRORS as e:
             warnings.warn(
                 f"Error comparing snapshots {i - 1} and {i}: {e}; "
                 f"skipping this pair")

@@ -13,6 +13,8 @@ import warnings
 import igraph as ig
 from typing import List, Tuple, Any
 
+from ._gap_utilities import _COMPUTE_ERRORS
+
 logger = logging.getLogger(__name__)
 
 # Map public algorithm names to igraph functions. Names align with
@@ -85,7 +87,7 @@ def _detect_communities(graphs: List[ig.Graph],
                     partition = algo_func(g).as_clustering()
                 else:
                     partition = algo_func(g)
-            except Exception as e:
+            except _COMPUTE_ERRORS as e:
                 warnings.warn(f"Community detection failed for "
                               f"graph {graph_idx}: {e}; skipping "
                               f"this snapshot")
@@ -94,7 +96,7 @@ def _detect_communities(graphs: List[ig.Graph],
 
             communities_list.append(partition)
 
-        except Exception as e:
+        except _COMPUTE_ERRORS as e:
             warnings.warn(f"Error processing graph {graph_idx}: {e}; "
                           f"skipping this snapshot")
             communities_list.append(None)

@@ -19,6 +19,14 @@ import pandas as pd
 # usually a string — otherwise the integer vertex index. See _vertex_keys.
 NodeKey = Union[str, int]
 
+# Exceptions expected from per-snapshot/per-metric computation on degenerate
+# or malformed graphs: igraph numerical failures, metrics undefined for a
+# graph, invalid values (including the duplicate-vertex-identity guard in
+# _vertex_keys). The resilient warn-and-NaN blocks across the package catch
+# exactly these; programming errors (TypeError, AttributeError, KeyError,
+# ...) propagate to the caller instead of being silently converted to NaN.
+_COMPUTE_ERRORS = (ig.InternalError, ValueError, ZeroDivisionError)
+
 
 class GapDict(TypedDict):
     """One detected temporal gap (an entry of ``GapInfo["gaps"]``)."""

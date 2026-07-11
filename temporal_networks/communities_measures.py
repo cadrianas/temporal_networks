@@ -22,6 +22,7 @@ import matplotlib.pyplot as plt
 from typing import Dict, List, Optional
 from ._gap_utilities import (
     GapInfo,
+    _COMPUTE_ERRORS,
     detect_temporal_gaps,
     print_gap_report,
     plot_with_gap_handling,
@@ -215,7 +216,7 @@ def communities_measures(graphs: List[ig.Graph],
                         partition = getattr(g, algo_func)(edge_weights=weights)
                     else:
                         partition = getattr(g, algo_func)(weights=weights)
-                except Exception as e:
+                except _COMPUTE_ERRORS as e:
                     warnings.warn(f"Algorithm {algo_name} failed on "
                                   f"graph {graph_label}: {e}; skipping "
                                   f"this snapshot for {algo_name}")
@@ -246,7 +247,7 @@ def communities_measures(graphs: List[ig.Graph],
                     ),
                 })
 
-            except Exception as e:
+            except _COMPUTE_ERRORS as e:
                 warnings.warn(f"Error processing graph {graph_label} with "
                               f"algorithm {algo_name}: {e}; skipping this "
                               f"snapshot for {algo_name}")

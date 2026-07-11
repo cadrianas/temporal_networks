@@ -16,7 +16,7 @@ class TestEdgeFormationDissolutionException(unittest.TestCase):
 
         # We patch igraph.Graph.get_edgelist to raise an Exception. The
         # failing pair must warn and yield a NaN row (shape preserved).
-        with patch('igraph.Graph.get_edgelist', side_effect=Exception("Test Exception")):
+        with patch('igraph.Graph.get_edgelist', side_effect=ig.InternalError("Test Exception")):
             with self.assertWarns(UserWarning):
                 results = compute_edge_dynamics(
                     graphs=graphs,

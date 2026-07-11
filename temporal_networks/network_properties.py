@@ -22,6 +22,7 @@ import numpy as np
 from typing import List, Optional
 from ._gap_utilities import (
     GapInfo,
+    _COMPUTE_ERRORS,
     detect_temporal_gaps,
     print_gap_report,
     plot_with_gap_handling,
@@ -139,12 +140,12 @@ def network_properties(graphs: List[ig.Graph],
         try:
             try:
                 diameter = graph.diameter()
-            except Exception:
+            except _COMPUTE_ERRORS:
                 diameter = np.nan
 
             try:
                 girth = graph.girth()
-            except Exception:
+            except _COMPUTE_ERRORS:
                 girth = np.nan
 
             try:
@@ -157,12 +158,12 @@ def network_properties(graphs: List[ig.Graph],
                     avg_path_length = np.nan
                 else:
                     avg_path_length = float(np.nanmean(dist_matrix))
-            except Exception:
+            except _COMPUTE_ERRORS:
                 avg_path_length = np.nan
 
             try:
                 transitivity = graph.transitivity_undirected()
-            except Exception:
+            except _COMPUTE_ERRORS:
                 transitivity = np.nan
 
             results.append({
@@ -189,7 +190,7 @@ def network_properties(graphs: List[ig.Graph],
                 "Has Multiple": graph.has_multiple(),
             })
 
-        except Exception as e:
+        except _COMPUTE_ERRORS as e:
             # Emit a NaN row so the output keeps one row per graph even
             # when a snapshot fails to process.
             warnings.warn(
@@ -213,7 +214,7 @@ def network_properties(graphs: List[ig.Graph],
         try:
             network_data.to_csv(filename, index=False)
             logger.info("Network properties saved to %s", filename)
-        except Exception as e:
+        except OSError as e:
             warnings.warn(f"Error saving to CSV: {e}")
 
     # Generate visualizations with gap handling

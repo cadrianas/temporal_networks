@@ -360,7 +360,7 @@ def detect_change_points(
                 flags = _pelt_flags(series, segments, threshold)
         except ImportError:
             raise
-        except Exception as e:
+        except (ValueError, TypeError) as e:
             warnings.warn(
                 f"Error detecting change points in '{col}': {e}")
             continue

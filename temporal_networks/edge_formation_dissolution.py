@@ -23,6 +23,7 @@ from typing import Any, Dict, List, Optional, Set, Tuple
 from ._gap_utilities import (
     GapInfo,
     NodeKey,
+    _COMPUTE_ERRORS,
     detect_temporal_gaps,
     print_gap_report,
     plot_with_gap_handling,
@@ -190,7 +191,7 @@ def compute_edge_dynamics(graphs: List[ig.Graph],
                 "Edges_Dissolved_Percent": dissolved_percent,
             })
 
-        except Exception as e:
+        except _COMPUTE_ERRORS as e:
             # Emit a NaN row so the output keeps one row per consecutive
             # pair even when a comparison fails.
             warnings.warn(

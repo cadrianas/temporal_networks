@@ -114,7 +114,7 @@ class TestCalculateCentralities(unittest.TestCase):
     def test_centrality_exception_handling(self):
         """Test handling of exceptions in centrality calculations."""
         # Patch eigenvector_centrality to raise an exception
-        with patch('igraph.Graph.eigenvector_centrality', side_effect=Exception("Test Exception")):
+        with patch('igraph.Graph.eigenvector_centrality', side_effect=ig.InternalError("Test Exception")):
             df = calculate_centralities(
                 graphs=[self.graph],
                 graph_labels=["G1"],

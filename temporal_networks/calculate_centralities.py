@@ -23,6 +23,7 @@ import matplotlib.pyplot as plt
 from typing import List, Optional
 from ._gap_utilities import (
     GapInfo,
+    _COMPUTE_ERRORS,
     detect_temporal_gaps,
     print_gap_report,
     plot_with_gap_handling,
@@ -151,58 +152,58 @@ def calculate_centralities(graphs: List[ig.Graph],
         # Compute centrality measures
         try:
             degree_centrality = graph.degree()
-        except Exception:
+        except _COMPUTE_ERRORS:
             degree_centrality = [None] * n
 
         try:
             closeness_centrality = graph.closeness()
-        except Exception:
+        except _COMPUTE_ERRORS:
             closeness_centrality = [None] * n
 
         try:
             betweenness_centrality = graph.betweenness(directed=graph.is_directed())
-        except Exception:
+        except _COMPUTE_ERRORS:
             betweenness_centrality = [None] * n
 
         # Eigenvector centrality is undefined for graphs with no edges
         if graph.ecount() > 0:
             try:
                 eigenvector_centrality = graph.eigenvector_centrality()
-            except Exception:
+            except _COMPUTE_ERRORS:
                 eigenvector_centrality = [None] * n
         else:
             eigenvector_centrality = [None] * n
 
         try:
             pagerank = graph.pagerank()
-        except Exception:
+        except _COMPUTE_ERRORS:
             pagerank = [None] * n
 
         try:
             harmonic_centrality = graph.harmonic_centrality()
-        except Exception:
+        except _COMPUTE_ERRORS:
             harmonic_centrality = [None] * n
 
         try:
             eccentricity = graph.eccentricity()
-        except Exception:
+        except _COMPUTE_ERRORS:
             eccentricity = [None] * n
 
         try:
             clustering_coefficient = graph.transitivity_local_undirected()
-        except Exception:
+        except _COMPUTE_ERRORS:
             clustering_coefficient = [None] * n
 
         # HITS hub/authority scores are only meaningful for directed graphs
         if graph.is_directed():
             try:
                 authority_score = graph.authority_score()
-            except Exception:
+            except _COMPUTE_ERRORS:
                 authority_score = [None] * n
 
             try:
                 hub_score = graph.hub_score()
-            except Exception:
+            except _COMPUTE_ERRORS:
                 hub_score = [None] * n
         else:
             authority_score = [None] * n
@@ -235,7 +236,7 @@ def calculate_centralities(graphs: List[ig.Graph],
         try:
             centralities_df.to_csv(filename, index=False)
             logger.info("Centralities results saved to %s", filename)
-        except Exception as e:
+        except OSError as e:
             warnings.warn(f"Error saving centralities to CSV: {e}")
 
     # Optional: Visualize centrality evolution over time

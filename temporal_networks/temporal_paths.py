@@ -32,6 +32,7 @@ import matplotlib.pyplot as plt
 from typing import Dict, List, Optional, Set, Tuple
 from ._gap_utilities import (
     NodeKey,
+    _COMPUTE_ERRORS,
     detect_temporal_gaps,
     print_gap_report,
     validate_and_setup_graphs,
@@ -321,7 +322,7 @@ def temporal_reachability(
 
     try:
         all_nodes = _union_nodes(graphs)
-    except Exception as e:
+    except _COMPUTE_ERRORS as e:
         warnings.warn(f"Could not collect node set: {e}")
         return pd.DataFrame(columns=_REACH_COLS)
 
@@ -339,7 +340,7 @@ def temporal_reachability(
                     "first_arrival_idx": (
                         float(fa[target]) if reached else float("nan")),
                 })
-        except Exception as e:
+        except _COMPUTE_ERRORS as e:
             warnings.warn(f"Error computing reachability from "
                           f"{source}: {e}; skipping this source")
             continue
@@ -641,7 +642,7 @@ def temporal_betweenness(
 
     try:
         all_nodes = _union_nodes(graphs)
-    except Exception as e:
+    except _COMPUTE_ERRORS as e:
         warnings.warn(f"Could not collect node set: {e}")
         return pd.DataFrame(columns=_BETW_COLS)
 
@@ -671,7 +672,7 @@ def temporal_betweenness(
                         delta[u] += (sigma[u] / sigma[w]) * credit
                     if w != source:
                         betweenness[w] += delta[w]
-        except Exception as e:
+        except _COMPUTE_ERRORS as e:
             warnings.warn(f"Error computing betweenness from "
                           f"{source}: {e}; skipping this source")
             continue

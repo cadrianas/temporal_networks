@@ -22,6 +22,7 @@ import numpy as np
 from typing import Any, Dict, List, Optional
 from ._gap_utilities import (
     GapInfo,
+    _COMPUTE_ERRORS,
     detect_temporal_gaps,
     print_gap_report,
     plot_with_gap_handling,
@@ -130,7 +131,7 @@ def vertex_properties(graphs: List[ig.Graph],
         try:
             properties_df.to_csv(save_path_file, index=False)
             logger.info("Vertex properties saved to %s", save_path_file)
-        except Exception as e:
+        except OSError as e:
             warnings.warn(f"Error saving vertex properties: {e}")
 
     # Generate visualizations with gap handling
@@ -205,55 +206,55 @@ def _compute_vertex_properties(graphs: List[ig.Graph], node_name: str,
         # Compute and store centrality measures
         try:
             properties["Degree_Centrality"].append(graph.degree()[node_index])
-        except Exception:
+        except _COMPUTE_ERRORS:
             properties["Degree_Centrality"].append(np.nan)
 
         try:
             properties["Closeness_Centrality"].append(graph.closeness()[node_index])
-        except Exception:
+        except _COMPUTE_ERRORS:
             properties["Closeness_Centrality"].append(np.nan)
 
         try:
             properties["Betweenness_Centrality"].append(graph.betweenness()[node_index])
-        except Exception:
+        except _COMPUTE_ERRORS:
             properties["Betweenness_Centrality"].append(np.nan)
 
         try:
             properties["Eigenvector_Centrality"].append(
                 graph.eigenvector_centrality()[node_index])
-        except Exception:
+        except _COMPUTE_ERRORS:
             properties["Eigenvector_Centrality"].append(np.nan)
 
         try:
             properties["PageRank"].append(graph.pagerank()[node_index])
-        except Exception:
+        except _COMPUTE_ERRORS:
             properties["PageRank"].append(np.nan)
 
         try:
             properties["Harmonic_Centrality"].append(
                 graph.harmonic_centrality()[node_index])
-        except Exception:
+        except _COMPUTE_ERRORS:
             properties["Harmonic_Centrality"].append(np.nan)
 
         try:
             properties["Eccentricity"].append(graph.eccentricity()[node_index])
-        except Exception:
+        except _COMPUTE_ERRORS:
             properties["Eccentricity"].append(np.nan)
 
         try:
             properties["Clustering_Coefficient"].append(
                 graph.transitivity_local_undirected()[node_index])
-        except Exception:
+        except _COMPUTE_ERRORS:
             properties["Clustering_Coefficient"].append(np.nan)
 
         try:
             properties["Constraint"].append(graph.constraint()[node_index])
-        except Exception:
+        except _COMPUTE_ERRORS:
             properties["Constraint"].append(np.nan)
 
         try:
             properties["Coreness"].append(graph.coreness()[node_index])
-        except Exception:
+        except _COMPUTE_ERRORS:
             properties["Coreness"].append(np.nan)
 
         # HITS hub/authority scores are only meaningful for directed graphs
@@ -261,12 +262,12 @@ def _compute_vertex_properties(graphs: List[ig.Graph], node_name: str,
             try:
                 properties["Authority_Score"].append(
                     graph.authority_score()[node_index])
-            except Exception:
+            except _COMPUTE_ERRORS:
                 properties["Authority_Score"].append(np.nan)
 
             try:
                 properties["Hub_Score"].append(graph.hub_score()[node_index])
-            except Exception:
+            except _COMPUTE_ERRORS:
                 properties["Hub_Score"].append(np.nan)
         else:
             properties["Authority_Score"].append(np.nan)

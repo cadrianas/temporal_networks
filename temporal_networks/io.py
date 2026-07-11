@@ -163,7 +163,7 @@ def snapshots_from_events(
 
     try:
         times = pd.to_datetime(df[time_col])
-    except Exception as e:
+    except (ValueError, TypeError, OverflowError) as e:
         raise ValueError(
             f"Could not parse '{time_col}' as datetimes: {e}") from e
 

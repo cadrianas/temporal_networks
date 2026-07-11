@@ -170,7 +170,7 @@ class TestNetworkProperties(unittest.TestCase):
         """Test behavior when a graph raises an exception during processing."""
         # Create a mock graph that raises an exception when vcount() is called
         mock_graph = MagicMock()
-        mock_graph.vcount.side_effect = Exception("Test Error")
+        mock_graph.vcount.side_effect = ig.InternalError("Test Error")
 
         # A failing snapshot must warn and produce a NaN row, keeping one
         # row per graph so output stays aligned with graph_labels.
@@ -188,6 +188,25 @@ class TestNetworkProperties(unittest.TestCase):
         self.assertTrue(np.isnan(df.loc[1, "Number of Nodes"]))
         self.assertTrue(np.isnan(df.loc[1, "Density"]))
 
+    def test_programming_errors_propagate(self):
+        """Only expected computation errors become NaN rows.
+
+        Regression test for the exception-narrowing policy: a TypeError
+        (a bug, not a degenerate graph) must propagate to the caller, not
+        be silently converted into a NaN row.
+        """
+        mock_graph = MagicMock()
+        mock_graph.vcount.side_effect = TypeError("a bug, not bad data")
+
+        with self.assertRaises(TypeError):
+            network_properties(
+                graphs=[self.g1, mock_graph],
+                graph_labels=["G1", "BugGraph"],
+                save_path=None,
+                visualisation=False,
+                report_gaps=False
+            )
+
     def test_specific_property_exceptions(self):
         """Test behavior when specific properties (like diameter or girth) raise exceptions."""
         # An empty graph might raise exceptions for some properties like diameter or girth, or return NaN
@@ -200,12 +219,12 @@ class TestNetworkProperties(unittest.TestCase):
         mock_graph.ecount.return_value = 5
         mock_graph.density.return_value = 0.1
         mock_graph.components.return_value = MagicMock(__len__=lambda self: 2)
-        mock_graph.diameter.side_effect = Exception("Diameter Error")
-        mock_graph.girth.side_effect = Exception("Girth Error")
-        mock_graph.distances.side_effect = Exception("Distances Error")
+        mock_graph.diameter.side_effect = ig.InternalError("Diameter Error")
+        mock_graph.girth.side_effect = ig.InternalError("Girth Error")
+        mock_graph.distances.side_effect = ig.InternalError("Distances Error")
         mock_graph.degree.return_value = [1, 2] # np.mean will be 1.5
         mock_graph.reciprocity.return_value = 0.5
-        mock_graph.transitivity_undirected.side_effect = Exception("Transitivity Error")
+        mock_graph.transitivity_undirected.side_effect = ig.InternalError("Transitivity Error")
         mock_graph.is_bipartite.return_value = False
         mock_graph.is_connected.return_value = False
         mock_graph.is_dag.return_value = False

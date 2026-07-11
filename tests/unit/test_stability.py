@@ -113,7 +113,7 @@ class TestErrorHandling(unittest.TestCase):
         g = ig.Graph(n=4, edges=[(0, 1)])
         graphs = [g.copy(), g.copy()]
         with patch("temporal_networks.stability._edge_identity_set",
-                   side_effect=Exception("boom")):
+                   side_effect=ig.InternalError("boom")):
             with self.assertWarns(UserWarning):
                 df = snapshot_similarity(graphs, graph_labels=["a", "b"],
                                          report_gaps=False)

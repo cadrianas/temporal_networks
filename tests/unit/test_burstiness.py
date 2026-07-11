@@ -160,7 +160,7 @@ class TestErrorHandling(unittest.TestCase):
     def test_compute_exception_warns_and_skips(self):
         graphs = [_on(), _on()]
         with patch("temporal_networks.burstiness._edge_identity_set",
-                   side_effect=Exception("boom")):
+                   side_effect=ig.InternalError("boom")):
             with self.assertWarns(UserWarning):
                 df = burstiness_coefficient(graphs, graph_labels=["a", "b"],
                                             report_gaps=False)
@@ -168,6 +168,17 @@ class TestErrorHandling(unittest.TestCase):
         self.assertEqual(list(df.columns),
                          ["entity", "n_events", "mean_interval",
                           "std_interval", "burstiness"])
+
+
+class TestExceptionPropagation(unittest.TestCase):
+    def test_programming_errors_propagate(self):
+        """A TypeError from a helper is a bug and must not become a warning."""
+        graphs = [_on(), _on()]
+        with patch("temporal_networks.burstiness._edge_identity_set",
+                   side_effect=TypeError("a bug, not bad data")):
+            with self.assertRaises(TypeError):
+                burstiness_coefficient(graphs, graph_labels=["a", "b"],
+                                       report_gaps=False)
 
 
 class TestPlotting(unittest.TestCase):

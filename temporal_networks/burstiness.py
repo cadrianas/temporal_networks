@@ -26,6 +26,7 @@ import matplotlib.pyplot as plt
 from typing import Dict, List, Optional
 from ._gap_utilities import (
     GapDict,
+    _COMPUTE_ERRORS,
     detect_temporal_gaps,
     print_gap_report,
     validate_and_setup_graphs,
@@ -83,7 +84,7 @@ def _entity_active_indices(graphs: List[ig.Graph],
                 keys = {str(n) for n in _active_nodes(edges)}
             for key in keys:
                 active.setdefault(key, []).append(i)
-        except Exception as e:
+        except _COMPUTE_ERRORS as e:
             warnings.warn(f"Error processing snapshot {i}: {e}; "
                           f"skipping this snapshot")
             continue
@@ -207,7 +208,7 @@ def inter_event_times(graphs: List[ig.Graph],
                     # labels like "Graph 10" sort before "Graph 2")
                     "_start_idx": i_a,
                 })
-            except Exception as e:
+            except _COMPUTE_ERRORS as e:
                 warnings.warn(f"Error timing entity {entity} between "
                               f"snapshots {i_a} and {i_b}: {e}; "
                               f"skipping this interval")
@@ -334,7 +335,7 @@ def burstiness_coefficient(graphs: List[ig.Graph],
                 "std_interval": std,
                 "burstiness": burst,
             })
-        except Exception as e:
+        except _COMPUTE_ERRORS as e:
             warnings.warn(f"Error scoring entity {entity}: {e}; "
                           f"skipping this entity")
             continue

@@ -365,7 +365,7 @@ class TestErrorHandling(unittest.TestCase):
     def test_bfs_exception_warns_and_skips(self):
         g0 = ig.Graph(n=2, edges=[(0, 1)])
         with patch("temporal_networks.temporal_paths._bfs_from_source",
-                   side_effect=Exception("boom")):
+                   side_effect=ig.InternalError("boom")):
             with self.assertWarns(UserWarning):
                 df = temporal_reachability([g0], graph_labels=["t"])
         self.assertTrue(df.empty)
@@ -376,7 +376,7 @@ class TestErrorHandling(unittest.TestCase):
     def test_union_nodes_exception_returns_empty(self):
         g0 = ig.Graph(n=2, edges=[(0, 1)])
         with patch("temporal_networks.temporal_paths._union_nodes",
-                   side_effect=Exception("no nodes")):
+                   side_effect=ig.InternalError("no nodes")):
             with self.assertWarns(UserWarning):
                 df = temporal_reachability([g0], graph_labels=["t"])
         self.assertTrue(df.empty)
@@ -513,7 +513,7 @@ class TestTemporalBetweenness(unittest.TestCase):
         g0 = ig.Graph(n=3, edges=[(0, 1)])
         with patch("temporal_networks.temporal_paths."
                    "_foremost_paths_from_source",
-                   side_effect=Exception("boom")):
+                   side_effect=ig.InternalError("boom")):
             with self.assertWarns(UserWarning):
                 bt = temporal_betweenness([g0], graph_labels=["t"],
                                           report_gaps=False)
