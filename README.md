@@ -139,6 +139,21 @@ no false continuity is implied.
 
 ## Tutorials
 
+Two domain walkthroughs show the package on a complete dataset:
+
+- [Face-to-face contacts in a school](examples/example_social_contacts.py)
+  ([docs](https://temporal-networks.readthedocs.io/en/latest/social_contacts.html))
+  — a proximity study with an unobserved holiday break: ingestion from a
+  contact log, community tracking across the break, and burstiness of ties
+- [Agent-based epidemic modelling](examples/example_epidemic_abm.py)
+  ([docs](https://temporal-networks.readthedocs.io/en/latest/epidemic_abm.html))
+  — contact data from an SIR agent-based model whose tracing programme is
+  suspended for fifteen days: change-point detection around an
+  intervention, and time-respecting paths that do not assume the
+  unobserved period away
+
+Reference walkthroughs covering the API surface:
+
 - [Full integration walkthrough](examples/example_full_integration.py) —
   one non-trivial temporal network (two communities, a broker snapshot, an
   anomaly, and a gap) threaded through **every** public function, with
@@ -154,10 +169,26 @@ no false continuity is implied.
 To reproduce the synthetic results and gap-aware visualizations:
 
 ```bash
+python examples/example_social_contacts.py
+python examples/example_epidemic_abm.py
 python examples/example_full_integration.py
 python examples/example_specs_01_02_03.py
 python examples/example_1_synthetic.py
 ```
+
+`example_social_contacts.py` and `example_epidemic_abm.py` are seeded and
+self-checking: each asserts the substantive claims made in its
+documentation page (that the pair straddling the break is `NaN`, that the
+reshuffled students are detected in their new class, that an intervention
+is flagged as a change point while the resumption of data collection is
+not, and that allowing paths to cross a gap strictly increases
+reachability).
+
+Every example is executed by the test suite (`tests/test_examples.py`), so
+a change that breaks one of these walkthroughs fails CI rather than going
+unnoticed. The two domain walkthroughs are additionally checked for
+reproducibility: each is run twice and its output compared, which is what
+keeps the numbers quoted in the documentation honest.
 
 `example_full_integration.py` runs every public function on one shared
 synthetic dataset and asserts hand-checkable invariants (the gap pair is

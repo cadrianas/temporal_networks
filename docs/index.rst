@@ -23,6 +23,18 @@ lines across missing periods.
 
    installation
    quickstart
+
+.. toctree::
+   :maxdepth: 2
+   :caption: Tutorials
+
+   social_contacts
+   epidemic_abm
+
+.. toctree::
+   :maxdepth: 2
+   :caption: Reference
+
    api
 
 Citation
