@@ -45,4 +45,18 @@ Going further
 - :func:`temporal_networks.detect_temporal_gaps` is the standalone gap
   analysis utility used throughout the package.
 
+Worked examples
+---------------
+
+Two end-to-end tutorials apply the package to a full dataset rather than a
+single function:
+
+- :doc:`social_contacts` — a face-to-face proximity study with an
+  unobserved holiday break: ingestion from a contact log, community
+  tracking across the break, and burstiness of ties.
+- :doc:`epidemic_abm` — contact data from an agent-based SIR model with a
+  suspended tracing programme: change-point detection around an
+  intervention, and time-respecting paths that do not assume the
+  unobserved period away.
+
 See the :doc:`api` for full parameter documentation.
