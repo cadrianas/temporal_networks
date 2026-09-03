@@ -90,7 +90,7 @@ def _diff_mad_flags(series: np.ndarray, segments: List[Tuple[int, int]],
     Flag indices where the first-difference is a MAD outlier.
 
     Within each segment, first differences are computed and scored as
-    ``|diff - median| / (1.4826 * MAD)``. Points whose score exceeds
+    ``abs(diff - median) / (1.4826 * MAD)``. Points whose score exceeds
     ``threshold`` are flagged at the *later* index of the pair. Scores are
     NaN when MAD = 0 (perfectly regular differences within the segment).
 
@@ -334,7 +334,7 @@ def detect_change_points(
         ``ruptures.Pelt.predict``.
 
         Note that the z-score uses the population standard deviation, so
-        the largest |z| any single point in an ``n``-point segment can
+        the largest absolute z-score any point in an ``n``-point segment can
         attain is ``sqrt(n - 1)``: ``threshold=3.0`` can only ever flag
         points in segments of 11 or more snapshots (``threshold=2.0``
         needs 6). A warning is emitted when a segment is too short for
@@ -493,5 +493,3 @@ def flag_anomalous_snapshots(
                                visualisation=False, report_gaps=False)
     return detect_change_points(props, method=method, threshold=threshold,
                                 label_col="Graph", gap_info=gap_info)
-
-

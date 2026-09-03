@@ -67,8 +67,8 @@ def communities_measures(graphs: List[ig.Graph],
     sequence and tracks how community structure evolves over time. Provides both
     detailed community membership and summary statistics.
 
-    **KEY FEATURE:** Automatically detects and reports temporal gaps in your data.
-    Plots correctly show gaps as visual breaks.
+    Temporal gaps are detected automatically and plots show them as visual
+    breaks.
 
     Parameters
     ----------
@@ -128,6 +128,7 @@ def communities_measures(graphs: List[ig.Graph],
     Notes
     -----
     Community detection algorithms available:
+
     - Leiden: Optimizes modularity with refined granularity
     - Louvain: Fast modularity optimization
     - Walktrap: Uses random walks to find communities
@@ -138,6 +139,7 @@ def communities_measures(graphs: List[ig.Graph],
     - Infomap: Information-theoretic approach
 
     Temporal Gaps:
+
     - Automatically analyzes temporal labels for gaps
     - Reports if data has missing periods
     - Community plots preserve gaps as visual breaks

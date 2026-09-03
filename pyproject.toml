@@ -7,7 +7,8 @@ name = "temporal_networks"
 version = "0.1.0"
 description = "Python package for analyzing dynamic networks over time with automatic gap detection"
 readme = "README.md"
-license = { text = "GPL-3.0-only" }
+license = "GPL-3.0-only"
+license-files = ["LICENSE"]
 authors = [
     { name = "Adriana-Stefania Ciupeanu", email = "cadrianas@gmail.com" },
     { name = "Julien Arino", email = "Julien.Arino@umanitoba.ca" },
@@ -17,7 +18,6 @@ keywords = ["temporal networks", "network analysis", "graph theory", "time serie
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Science/Research",
-    "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
