@@ -1,0 +1,82 @@
+name: Publish to PyPI
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pypi-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Test and build distributions
+    runs-on: ubuntu-latest
+    env:
+      MPLBACKEND: Agg
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Check release tag matches package version
+        if: github.event_name == 'release'
+        env:
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+        run: |
+          python - <<'PY'
+          import os
+          import tomllib
+          from pathlib import Path
+
+          version = tomllib.loads(Path("pyproject.toml").read_text())["project"]["version"]
+          tag = os.environ["RELEASE_TAG"]
+          if tag not in (version, f"v{version}"):
+              raise SystemExit(f"Release tag {tag!r} must match {version!r} or 'v{version}'")
+          PY
+      - name: Install build and test tools
+        run: python -m pip install --upgrade build twine ".[dev,docs,changepoint]"
+      - name: Run tests
+        run: python -m pytest tests/ --tb=short
+      - name: Check lint and types
+        run: |
+          ruff check temporal_networks/ examples/ benchmarks/
+          mypy temporal_networks/
+      - name: Build documentation
+        run: sphinx-build -W --keep-going -b html docs docs/_build/html
+      - name: Build source archive and wheel
+        run: python -m build
+      - name: Check metadata and archive contents
+        run: |
+          python -m twine check --strict dist/*
+          python scripts/check_distribution.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: python-distributions
+          path: dist/
+          if-no-files-found: error
+
+  publish:
+    name: Publish with PyPI trusted publishing
+    needs: build
+    # Manual runs validate and build only. Publishing requires a GitHub release.
+    if: github.event_name == 'release'
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/project/temporal-networks/
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: python-distributions
+          path: dist/
+      - name: Publish distributions
+        uses: pypa/gh-action-pypi-publish@release/v1

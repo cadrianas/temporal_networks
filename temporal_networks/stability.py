@@ -74,7 +74,7 @@ def _temporal_correlation_pair(nb_prev: Dict[NodeKey, Set[NodeKey]],
     Average topological overlap between two consecutive snapshots.
 
     For each node, the overlap is
-    ``|N_t ∩ N_{t+1}| / sqrt(|N_t| * |N_{t+1}|)`` (0 when the node is isolated
+    ``len(N_t & N_{t+1}) / sqrt(len(N_t) * len(N_{t+1}))`` (0 when the node is isolated
     in either snapshot). The result averages this over nodes that are active in
     at least one of the two snapshots, or NaN if neither snapshot has edges.
     """
@@ -136,8 +136,8 @@ def snapshot_similarity(graphs: List[ig.Graph],
         One row per consecutive pair, with columns:
 
         - ``Graph``: label of the current (later) snapshot
-        - ``jaccard``: |E_t ∩ E_{t+1}| / |E_t ∪ E_{t+1}|
-        - ``edge_persistence``: fraction of E_t surviving into E_{t+1}
+        - ``jaccard``: intersection size divided by union size
+        - ``edge_persistence``: fraction of prior edges surviving
         - ``node_persistence``: fraction of active nodes surviving
         - ``temporal_correlation``: node-averaged topological overlap
 

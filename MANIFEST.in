@@ -1,4 +1,6 @@
-include README.md
-include LICENSE
-recursive-exclude examples/plots *
-recursive-exclude tests *
+# Ship only the library sources and files needed to build and describe it.
+# Keep manuscripts, exports, examples, audit notes, and local state out of PyPI.
+global-exclude *
+include README.md LICENSE pyproject.toml MANIFEST.in
+recursive-include temporal_networks *.py *.pyi py.typed
+global-exclude *.py[cod] .DS_Store
