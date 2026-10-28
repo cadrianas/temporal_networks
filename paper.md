@@ -35,9 +35,10 @@ sequence of graph snapshots. It constructs snapshots from event tables, measures
 structural and node-level change, tracks communities and edges, detects anomalies,
 and computes burstiness and time-respecting path metrics. Its defining feature is
 automatic treatment of temporal gaps. Labels such as dates, weeks, quarters, or
-years are used to identify missing periods; comparisons that would cross a gap are
-reported as missing, and plots are split into continuous segments. This prevents
-an unobserved interval from being presented as an observed transition.
+years are used to identify missing periods relative to an inferred or specified
+cadence. Gap-aware comparisons are reported as missing at these boundaries, and
+associated time-series plots are split into continuous segments. This helps avoid
+presenting an unobserved interval as an observed transition.
 
 # Statement of need
 
@@ -45,9 +46,10 @@ Researchers commonly receive network data as timestamped interactions or as a
 sequence of snapshots. A complete workflow then requires event binning, consistent
 node identifiers, repeated structural calculations, temporal comparisons, and
 figures that accurately represent the observation schedule. General-purpose graph
-libraries provide the underlying algorithms but leave this temporal scaffolding to
-each user. The resulting analysis code is often study-specific, difficult to test,
-and liable to connect observations across periods in which no data were collected.
+libraries provide many of the underlying algorithms; users may still need
+additional code to coordinate snapshot-based analyses. Such code can become
+study-specific and may inadvertently connect observations across periods in which
+no data were collected.
 
 `temporal_networks` is intended for researchers and students who work with
 discrete-time network data and need a reproducible analysis pipeline, particularly
@@ -55,9 +57,11 @@ when observation periods are irregular. Missing periods occur naturally in conta
 studies interrupted by holidays, epidemiological surveillance conducted in phases,
 seasonal transportation systems, and infrastructure data affected by maintenance.
 Treating a gap as an ordinary pair of adjacent rows can bias persistence measures,
-create impossible time-respecting paths, and draw false continuity in a figure.
+infer time-respecting paths unsupported by the observations, and draw false continuity in a figure.
 The package makes the observation schedule part of the computation rather than a
-plot annotation added after analysis.
+plot annotation added after analysis. Gap detection relies on the supplied labels
+and cadence; users must distinguish missing observations from observed periods
+with no interactions.
 
 # State of the field
 
@@ -70,34 +74,32 @@ tabular results, and temporal visualisation.
 Dedicated temporal-network tools make different representational choices.
 `DyNetx` models interactions in dynamic graphs [@rossetti2020dynetx], while
 `teneto` provides temporal-network measures with particular strengths in
-time-varying connectivity and neuroimaging [@thompson2017teneto]. These are useful
-ecosystems, but neither makes missing observation periods a shared default across
-snapshot ingestion, pairwise comparisons, trajectories, change detection, and
-plots. Contributing isolated gap logic to one existing metric would not address
-the cross-cutting problem: the same observation boundary must be respected by
-every downstream operation. `temporal_networks` therefore contributes a compact,
-snapshot-oriented workflow in which gap semantics and node identity are shared
-across otherwise distinct analyses.
+time-varying connectivity and neuroimaging [@thompson2017teneto]. These tools
+support a range of temporal-network workflows. `temporal_networks` focuses on
+snapshot-based analyses in which missing observation periods need to be handled
+consistently across ingestion, pairwise comparisons, trajectories, change
+detection, and plots. It provides a compact workflow in which gap semantics and
+node identity are shared across these analyses.
 
 # Software design
 
-The package represents a temporal network as a sequence of igraph graphs plus an
-equally ordered sequence of time labels. This design retains compatibility with
+The package represents a temporal network as a sequence of igraph graphs plus a
+corresponding sequence of time labels. This design retains compatibility with
 igraph algorithms and lets users bring existing graphs without converting to a
 new container type. The trade-off is that sequence validation and temporal
 metadata must be applied consistently. Central validation utilities therefore
 check graph-label alignment, infer the cadence of supported label formats, and
-return continuous index segments used throughout the package.
+identify continuous index segments for gap-aware analyses.
 
-Node-level and edge-level calculations use vertex names when available rather
-than assuming that vertex indices remain stable between snapshots. Unnamed graphs
-remain supported through an explicit index fallback with a warning. Pairwise
-metrics return `NaN` at a gap boundary instead of silently computing a value, and
+Cross-snapshot comparisons use vertex names or labels when available. When
+neither attribute is present, they fall back to vertex indices, which requires
+consistent vertex ordering across snapshots. Gap-aware pairwise metrics return
+`NaN` at a gap boundary instead of computing a value across it, and
 time-respecting path algorithms can exclude transitions across such boundaries.
 This conservative choice distinguishes "not observed" from a numerical zero.
 
-Results are returned as pandas data frames so they can be inspected, joined, and
-plotted in ordinary scientific Python workflows. File output is opt-in for
+Most analysis functions return pandas data frames so results can be inspected,
+joined, and plotted in ordinary scientific Python workflows. File output is opt-in for
 analysis functions. The public API is divided into interoperable modules:
 
 - event-table and edge-list ingestion;
@@ -114,16 +116,18 @@ widely used NumPy, pandas, igraph, Matplotlib, and Plotly components.
 ## Reproducibility and documentation
 
 The repository provides reproducible materials demonstrating two research
-workflows: a school contact-network walkthrough ingesting proximity events and
+workflows using synthetic data: a school contact-network walkthrough ingesting
+simulated proximity events and
 tracking communities around an unobserved holiday, and an epidemic
 agent-based-modelling walkthrough analysing contact-tracing interruptions and
-temporal reachability. Both examples are seeded, self-checking, run twice in the
-test suite, and rendered in the online documentation. 
+temporal reachability. Both examples are seeded and contain assertions about their results.
+Reproducibility tests run each example twice and compare its console output;
+accompanying tutorials are included in the documentation. 
 
 An additional end-to-end integration test runs a sequence through every public
-function to verify invariants across brokers, anomalies, and gaps. The package
-includes 225 automated tests, continuous integration across Python 3.9--3.12,
-linting, and static type checking.
+function to verify invariants across brokers, anomalies, and gaps. The repository includes 225 automated tests and a continuous integration
+configuration for Python 3.9--3.12, linting, static type checking, and documentation
+builds.
 
 # AI usage disclosure
 
@@ -135,7 +139,8 @@ human author. Anthropic Claude assisted with code review and suggested a synthet
 integration example for exercising interactions among package functions. All
 modifications retained in the repository were verified and revised by human
 authors, who retain full responsibility for the accuracy, licensing, and final
-submitted work.
+submitted work. OpenAI Codex also assisted with manuscript editing, reference
+checking, and document preparation.
 
 # Acknowledgements
 
