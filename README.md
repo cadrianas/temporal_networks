@@ -1,7 +1,7 @@
 # temporal_networks
 
-[![PyPI version](https://badge.fury.io/py/temporal-networks.svg)](https://badge.fury.io/py/temporal-networks)
-[![CI](https://github.com/cadrianas/temporal_networks/actions/workflows/tests.yml/badge.svg)](https://github.com/cadrianas/temporal_networks/actions/workflows/tests.yml)
+[![PyPI version](https://badge.fury.io/py/temporal-networks.svg)](https://pypi.org/project/temporal-networks/)
+[![CI](https://github.com/cadrianas/temporal_networks/actions/workflows/tests.yml/badge.svg?branch=main)](https://github.com/cadrianas/temporal_networks/actions/workflows/tests.yml?query=branch%3Amain)
 [![Documentation Status](https://readthedocs.org/projects/temporal-networks/badge/?version=latest)](https://temporal-networks.readthedocs.io)
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 
